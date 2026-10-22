@@ -46,11 +46,23 @@ describe("markets and channels", () => {
 describe("India label declarations (FSSAI + Legal Metrology)", () => {
   it("flags every missing declaration on the granola label", () => {
     const ids = checkCodeRules(INPUT_B, india.pack.rules).map((f) => f.ruleId);
-    expect(ids).toEqual(["IN-FSSAI-LIC", "IN-FSSAI-VEG", "IN-LM-NET", "IN-LM-MRP", "IN-LM-DATE", "IN-LM-MFR"]);
+    expect(ids).toEqual([
+      "IN-FSSAI-LIC",
+      "IN-FSSAI-VEG",
+      "IN-LM-NET",
+      "IN-LM-MRP",
+      "IN-LM-DATE",
+      "IN-LM-MFR",
+      "IN-FSSAI-NUT",
+      "IN-LM-CARE",
+      "IN-LM-ORIGIN",
+      "IN-LM-BATCH",
+      "IN-LM-MFD",
+    ]);
   });
 
   it("passes a label that has them all", () => {
-    const full = `${INPUT_B}\nVeg. Net quantity: 200 g. MRP ₹149 (incl. of all taxes). Best before 6 months from manufacture.\nManufactured by: Good Foods Pvt Ltd, Pune.\nFSSAI Lic. No. 10012345678901`;
+    const full = `${INPUT_B}\nVeg. Net quantity: 200 g. MRP ₹149 (incl. of all taxes). Best before 6 months from manufacture. Mfd. on: 10/2026. Batch No.: B2610.\nManufactured by: Good Foods Pvt Ltd, Pune. Country of origin: India. Customer care: 1800 123 4567 | care@goodfoods.in\nFSSAI Lic. No. 10012345678901\nNutritional information per 100 g / per serve: Energy 450 kcal`;
     expect(checkCodeRules(full, india.pack.rules)).toEqual([]);
   });
 

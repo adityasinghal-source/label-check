@@ -4,6 +4,7 @@ export const MESSAGES = {
   notALabel: "This doesn't look like product label text. Please paste your label text.",
   tooLong: "That's too long for one label. Paste just the label text.",
   imageUnreadable: "We couldn't read that. Please paste your label text.",
+  uploadRules: "Upload up to 3 files: PNG, JPG, WebP or PDF, up to 10 MB each.",
   chooseMarket: "Please choose a market.",
   pasteRejection: "Please paste the rejection message you received.",
   notARejection: "This doesn't look like a rejection or compliance notice. Paste the message you received.",

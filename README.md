@@ -6,6 +6,20 @@ Paste a draft food or supplement label (or upload a photo), choose where you sel
 
 > A screening aid, not legal advice. ShelfReady can only say "no issues found against rule pack v0.1". It never says a label is "compliant".
 
+## Features at a glance
+
+- **Mandatory elements, both markets.** US: product name, net quantity in oz *and* g, ingredients, Nutrition Facts, name and place of business. India: product name, ingredients, nutritional information (per 100 g and per serve), veg/non-veg mark, 14-digit FSSAI licence, net quantity, MRP "inclusive of all taxes", consumer care, country of origin, manufacture and best-before dates, batch number.
+- **Nutrient claims checked against the table.** "High protein", "Low fat", "Sugar free" and others are matched to the nutrition table: a claim with no nutrition line is HIGH, and a value under the threshold is flagged (US thresholds from 21 CFR 101.54–101.62; India's are Codex-aligned and marked Unverified).
+- **No fake fixes.** Fix all never invents facts. Placeholders like `[MRP amount]`, `XXXX` or `12345678901234` are always flagged, and a **Fill missing label facts** form puts your real values into the fixed draft (the FSSAI number must be 14 real digits).
+- **Product categories:** general food, health supplements, protein and sports nutrition, beverages, imported food. Each adds its own rules ("NOT FOR MEDICINAL USE", the DSHEA disclaimer, the caffeine warning, juice %, importer details, country of origin).
+- **Quick-commerce onboarding** (Blinkit, Zepto, Instamart, Flipkart Minutes, Amazon Now, BB Now): barcode, both manufacture and best-before dates, and customer care phone *and* email.
+- **Upload artwork:** up to 3 PNG, JPG, WebP or PDF files (10 MB each), tagged front, back or nutrition. The text is read into the three panels for you to correct, and vision reports the veg mark, FSSAI logo and barcode.
+- **Structured panels** (front / back / nutrition) or a single text box, with a character and word count.
+- **Report tools:** a visual print-readiness checklist, two-way links between highlights and rule cards (hover for rule and risk, "Locate in label"), **Export PDF**, **Copy report summary**, and the last 5 checks under **Recent checks**.
+- **Channel matrix** with two views (By issue, with grouped channel pills; By channel, with collapsible cards): no sideways scrolling at 7 channels, down to 375 px wide.
+
+**Upload size on Vercel:** Vercel limits a request body to about 4.5 MB, so files near 10 MB work locally but fail when deployed. Compress large photos first.
+
 ---
 
 ## Job to be done

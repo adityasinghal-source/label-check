@@ -16,6 +16,54 @@
       }
     ]
   },
+  "quickCommerce": {
+    "channels": ["blinkit", "zepto", "instamart", "flipkart-minutes", "amazon-now", "bb-now"],
+    "rules": [
+      {
+        "id": "QC-001",
+        "name": "No GS1 barcode (EAN-13 / UPC) found",
+        "severity": "medium",
+        "checkedBy": "code",
+        "citation": "Third-party checklists report quick-commerce platforms need a GS1-based EAN barcode on every unit; internal codes and QR codes aren't accepted",
+        "source": { "label": "Confetti: quick commerce readiness checklist", "url": "https://confetti.design/blog/quick-commerce-readiness-checklist" },
+        "verified": false,
+        "match": { "when": "absent", "regex": "\\b\\d{12,13}\\b|\\b(?:ean(?:[- ]?13)?|gtin|upc|barcode)\\b" },
+        "visualKey": "barcode",
+        "explanation": "No barcode number or barcode mention was found. Dark stores scan every unit at intake.",
+        "advice": "Register with GS1 India and print the EAN-13 barcode on each unit (or upload a photo showing it).",
+        "fix": { "type": "manual" }
+      },
+      {
+        "id": "QC-002",
+        "name": "Shelf life not clear (needs both manufacture and best-before dates)",
+        "severity": "high",
+        "checkedBy": "code",
+        "citation": "Third-party onboarding guides report quick-commerce dark stores reject SKUs whose total shelf life can't be worked out from the pack",
+        "source": { "label": "Blooprint: quick commerce listing guide", "url": "https://blooprint.in/blog/quick-commerce-listing-guide/" },
+        "verified": false,
+        "match": {
+          "when": "absent",
+          "regex": "^(?=[\\s\\S]*(?:\\b(?:mfd|mfg|pkd)\\b|date\\s+of\\s+(?:manufacture|packing)|manufactured\\s+on|packed\\s+on))(?=[\\s\\S]*(?:best\\s*before|use\\s*by|expiry|expires))"
+        },
+        "explanation": "Quick-commerce stores work out remaining shelf life from the manufacture date and the best-before or expiry date, and need both on the pack.",
+        "advice": "Print both the date of manufacture and the best-before (or expiry) date.",
+        "fix": { "type": "manual" }
+      },
+      {
+        "id": "QC-003",
+        "name": "Customer care needs both phone and email",
+        "severity": "medium",
+        "checkedBy": "code",
+        "citation": "Third-party onboarding guides report quick-commerce listings need complete customer care details; Legal Metrology Rule 6 lists phone and email",
+        "source": { "label": "Blooprint: quick commerce listing guide", "url": "https://blooprint.in/blog/quick-commerce-listing-guide/" },
+        "verified": false,
+        "match": { "when": "absent", "regex": "^(?=[\\s\\S]*[\\w.+-]+@[\\w-]+\\.[\\w.]+)(?=[\\s\\S]*(?:\\+91[\\s-]?[6-9]\\d{4}[\\s-]?\\d{5}\\b|\\b1800[\\s-]?\\d{3}[\\s-]?\\d{4}\\b|(?<!\\d)[6-9]\\d{9}(?!\\d)|\\b0\\d{2,4}[\\s-]\\d{6,8}\\b))" },
+        "explanation": "The customer care details don't include both a phone number and an email address.",
+        "advice": "Give a customer care phone number and email address.",
+        "fix": { "type": "append_line", "line": "Customer care: [customer care phone] | [customer care email]" }
+      }
+    ]
+  },
   "channels": [
     {
       "id": "amazon-us",
@@ -118,18 +166,6 @@
           "match": { "when": "confirm" },
           "explanation": "Zepto is reported to need about 60% of the product's total shelf life left when stock arrives. This depends on dispatch timing, not the label.",
           "advice": "Plan dispatch so stock arrives with about 60% of its shelf life left; confirm the threshold with Zepto."
-        },
-        {
-          "id": "ZEP-002",
-          "name": "GS1 (EAN) barcode on every unit",
-          "severity": "low",
-          "checkedBy": "code",
-          "citation": "Third-party checklists report quick-commerce platforms need a GS1-based EAN barcode on each unit; internal codes and QR codes aren't accepted",
-          "source": { "label": "Confetti: quick commerce readiness checklist", "url": "https://confetti.design/blog/quick-commerce-readiness-checklist" },
-          "verified": false,
-          "match": { "when": "confirm" },
-          "explanation": "Zepto is reported to need a scannable GS1 (EAN) barcode on every unit.",
-          "advice": "Register with GS1 India and print the EAN barcode on each unit."
         }
       ]
     },

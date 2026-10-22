@@ -3,6 +3,23 @@
   "label": "India (FSSAI)",
   "version": "0.1",
   "allergenRuleId": "FSSAI-ALG-001",
+  "identityRuleId": "IN-FSSAI-NAME",
+  "nutrientBasis": "per 100 g or 100 ml",
+  "nutrientClaims": [
+    { "claim": "High protein", "pattern": "\\b(?:high|rich)\\s+(?:in\\s+)?protein\\b|\\bprotein[- ]rich\\b", "nutrient": "protein", "op": "min", "value": 10, "unit": "g" },
+    { "claim": "High fibre", "pattern": "\\b(?:high|rich)\\s+(?:in\\s+)?fib(?:er|re)\\b", "nutrient": "fiber", "op": "min", "value": 6, "unit": "g" },
+    { "claim": "Low fat", "pattern": "\\blow[- ]fat\\b", "nutrient": "fat", "op": "max", "value": 3, "unit": "g" },
+    { "claim": "Sugar free", "pattern": "\\b(?:sugar[- ]free|zero sugar|no sugar)\\b", "nutrient": "sugar", "op": "max", "value": 0.5, "unit": "g" },
+    { "claim": "Trans fat free", "pattern": "\\b(?:zero|0\\s*g|no)\\s+trans[- ]fats?\\b|\\btrans[- ]fat[- ]free\\b", "nutrient": "transFat", "op": "lt", "value": 0.2, "unit": "g" },
+    { "claim": "Low sodium", "pattern": "\\blow[- ]sodium\\b", "nutrient": "sodium", "op": "max", "value": 120, "unit": "mg" }
+  ],
+  "visualChecklist": [
+    "Veg (green) or non-veg (brown) symbol: a filled circle or triangle inside a square, in the right colour, close to the product name, at the minimum size for the panel",
+    "Official FSSAI logo with the licence number printed beside it, on the primary pack (not a sticker)",
+    "Net quantity and MRP numerals meet the minimum height for the principal display panel's area (Legal Metrology (Packaged Commodities) Rules, 2011)",
+    "Mandatory declarations are legible, on a contrasting background, and not covered by seals or flaps",
+    "Nutritional information is in a table, per 100 g or 100 ml and per serve"
+  ],
   "rules": [
     {
       "id": "FSSAI-DC-001",
@@ -45,6 +62,7 @@
       "source": { "label": "FSSAI regulations", "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php" },
       "verified": true,
       "match": { "when": "absent", "regex": "\\b(?:non[- ]?veg(?:etarian)?|veg(?:etarian)?|green dot|brown dot)\\b" },
+      "visualKey": "vegMark",
       "explanation": "The label text doesn't mention the veg (green) or non-veg (brown) mark. It's a symbol, so it may be on your artwork already: check that it sits close to the product name.",
       "advice": "Make sure the green (veg) or brown (non-veg) symbol is printed next to the product name.",
       "fix": { "type": "manual" }
@@ -60,7 +78,7 @@
       "match": { "when": "absent", "regex": "\\bnet\\s*(?:qty\\.?|quantity|wt\\.?|weight|contents?)?\\s*[:\\-]?\\s*\\d" },
       "explanation": "No net quantity (for example \"Net quantity: 200 g\") was found. Packaged goods sold in India must declare it.",
       "advice": "Add the net quantity in standard units, e.g. \"Net quantity: 200 g\".",
-      "fix": { "type": "append_line", "line": "Net quantity: [amount] g" }
+      "fix": { "type": "append_line", "line": "Net quantity: [net quantity, e.g. 200 g]" }
     },
     {
       "id": "IN-LM-MRP",
@@ -73,7 +91,7 @@
       "match": { "when": "absent", "regex": "\\b(?:m\\.?\\s?r\\.?\\s?p\\b|maximum retail price|max\\.? retail price)" },
       "explanation": "No MRP was found. Packaged goods sold in India must show the maximum retail price, \"inclusive of all taxes\".",
       "advice": "Add \"MRP ₹[amount] (incl. of all taxes)\".",
-      "fix": { "type": "append_line", "line": "MRP ₹[amount] (incl. of all taxes)" }
+      "fix": { "type": "append_line", "line": "MRP ₹[MRP amount] (incl. of all taxes)" }
     },
     {
       "id": "IN-LM-DATE",
@@ -86,7 +104,7 @@
       "match": { "when": "absent", "regex": "best\\s*before|use\\s*by|expiry|expires|exp\\.\\s*date" },
       "explanation": "No best-before or use-by date was found. Indian food labels must show it, and online channels use it to check shelf life.",
       "advice": "Add the best-before period, e.g. \"Best before 6 months from manufacture\".",
-      "fix": { "type": "append_line", "line": "Best before: [number] months from manufacture" }
+      "fix": { "type": "append_line", "line": "Best before: [number of months] months from manufacture" }
     },
     {
       "id": "IN-LM-MFR",
@@ -99,7 +117,7 @@
       "match": { "when": "absent", "regex": "\\b(?:manufactured|mfd\\.?|mkd\\.?|marketed|packed)\\s+(?:and\\s+\\w+\\s+)?by\\b|\\bmanufacturer\\b" },
       "explanation": "No manufacturer, packer or marketer name and address was found.",
       "advice": "Add \"Manufactured by: [name and full address]\".",
-      "fix": { "type": "append_line", "line": "Manufactured by: [name and full address]" }
+      "fix": { "type": "append_line", "line": "Manufactured by: [manufacturer name and full address]" }
     },
     {
       "id": "IN-FSSAI-NAT",
@@ -112,6 +130,165 @@
       "match": { "when": "present", "regex": "\\b(?:100%\\s*|all[- ])?natural\\b(?!\\s+flavou?rs?)" },
       "explanation": "\"Natural\" is reserved for single foods with nothing added. A product made from several ingredients may only say \"made from natural ingredients\".",
       "advice": "Change it to \"made from natural ingredients\", or remove the word.",
+      "fix": { "type": "manual" }
+    },
+    {
+      "id": "IN-FSSAI-NAME",
+      "name": "Product name missing",
+      "severity": "high",
+      "checkedBy": "ai",
+      "citation": "FSS (Labelling and Display) Regulations, 2020: name of the food",
+      "source": { "label": "FSSAI regulations", "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php" },
+      "verified": true,
+      "explanation": "No product name was found. The label must give the name of the food.",
+      "advice": "Add the product's name to the front panel.",
+      "fix": { "type": "manual" }
+    },
+    {
+      "id": "IN-FSSAI-ING",
+      "name": "Ingredient list missing",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "FSS (Labelling and Display) Regulations, 2020: list of ingredients in descending order of weight",
+      "source": { "label": "FSSAI regulations", "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php" },
+      "verified": true,
+      "match": { "when": "absent", "regex": "\\bingredients?\\s*:" },
+      "explanation": "No ingredient list (\"Ingredients: …\") was found. Without it, allergens can't be checked either.",
+      "advice": "Add \"Ingredients:\" followed by every ingredient in descending order by weight.",
+      "fix": { "type": "manual" }
+    },
+    {
+      "id": "IN-FSSAI-NUT",
+      "name": "Nutritional information missing",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "FSS (Labelling and Display) Regulations, 2020: nutritional information per 100 g or 100 ml and per serve",
+      "source": { "label": "FSSAI regulations", "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php" },
+      "verified": true,
+      "match": { "when": "absent", "regex": "\\bnutrition(?:al)?\\s+(?:information|facts|panel|value)|\\benergy\\s*\\(?k?cal" },
+      "explanation": "No nutritional information table was found in the text.",
+      "advice": "Paste the nutritional information table (per 100 g or 100 ml, and per serve).",
+      "fix": { "type": "manual" }
+    },
+    {
+      "id": "IN-FSSAI-NUT100",
+      "name": "Nutrition not given per 100 g / 100 ml and per serve",
+      "severity": "medium",
+      "checkedBy": "code",
+      "citation": "FSS (Labelling and Display) Regulations, 2020: values per 100 g or 100 ml, and per serve with % RDA",
+      "source": { "label": "FSSAI regulations", "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php" },
+      "verified": true,
+      "match": {
+        "when": "absent",
+        "onlyIf": "\\bnutrition(?:al)?\\s+(?:information|facts|panel|value)|\\benergy\\s*\\(?k?cal",
+        "regex": "^(?=[\\s\\S]*per\\s*100\\s*(?:g|ml))(?=[\\s\\S]*per\\s*serv)"
+      },
+      "explanation": "The nutrition table doesn't show both \"per 100 g\" (or 100 ml) and \"per serve\" values.",
+      "advice": "Give each nutrient per 100 g (or 100 ml) and per serve, with % RDA per serve.",
+      "fix": { "type": "manual" }
+    },
+    {
+      "id": "IN-LM-MRP-TAX",
+      "name": "MRP doesn't say \"inclusive of all taxes\"",
+      "severity": "medium",
+      "checkedBy": "code",
+      "citation": "Legal Metrology (Packaged Commodities) Rules, 2011, Rule 6: MRP declared \"inclusive of all taxes\"",
+      "source": { "label": "Legal Metrology (Packaged Commodities) Rules, 2011", "url": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf" },
+      "verified": true,
+      "match": { "when": "absent", "onlyIf": "\\b(?:m\\.?\\s?r\\.?\\s?p\\b|maximum retail price|max\\.? retail price)", "regex": "incl(?:\\.|usive)?\\s*(?:of\\s*)?all\\s*taxes" },
+      "explanation": "The MRP is printed, but without the words \"inclusive of all taxes\".",
+      "advice": "Write it as \"MRP ₹[amount] (incl. of all taxes)\".",
+      "fix": { "type": "manual" }
+    },
+    {
+      "id": "IN-LM-CARE",
+      "name": "Consumer care details missing",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "Legal Metrology (Packaged Commodities) Rules, 2011, Rule 6: consumer care name, address, phone and email",
+      "source": { "label": "Legal Metrology (Packaged Commodities) Rules, 2011", "url": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf" },
+      "verified": true,
+      "match": { "when": "absent", "regex": "\\b(?:customer|consumer)\\s+care\\b|\\btoll[- ]free\\b|[\\w.+-]+@[\\w-]+\\.[\\w.]+|\\b1800[\\s-]?\\d" },
+      "explanation": "No consumer care contact (phone or email) was found.",
+      "advice": "Add \"Customer care: [phone] | [email]\" with the person or office to contact.",
+      "fix": { "type": "append_line", "line": "Customer care: [customer care phone] | [customer care email]" }
+    },
+    {
+      "id": "IN-LM-ORIGIN",
+      "name": "Country of origin missing",
+      "severity": "medium",
+      "checkedBy": "code",
+      "citation": "Legal Metrology (Packaged Commodities) Rules, 2011, Rule 6: country of origin or manufacture",
+      "source": { "label": "Legal Metrology (Packaged Commodities) Rules, 2011", "url": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf" },
+      "verified": true,
+      "match": { "when": "absent", "regex": "\\bcountry\\s+of\\s+origin\\b|\\bmade\\s+in\\s+\\w|\\bproduct\\s+of\\s+\\w" },
+      "explanation": "No country of origin was found.",
+      "advice": "Add \"Country of origin: India\" (or the country it was made in).",
+      "fix": { "type": "append_line", "line": "Country of origin: [country]" }
+    },
+    {
+      "id": "IN-LM-BATCH",
+      "name": "Batch or lot number missing",
+      "severity": "medium",
+      "checkedBy": "code",
+      "citation": "FSS (Labelling and Display) Regulations, 2020: lot, code or batch identification",
+      "source": { "label": "FSSAI regulations", "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php" },
+      "verified": true,
+      "match": { "when": "absent", "regex": "\\bbatch\\b|\\blot\\s*(?:no|number|code)?\\b|\\bb\\.?\\s?no\\.?" },
+      "explanation": "No batch or lot number was found. It's usually printed at packing time, so a placeholder is fine on artwork.",
+      "advice": "Leave a space on the artwork for \"Batch No.\", printed at packing.",
+      "fix": { "type": "append_line", "line": "Batch No.: [batch number, printed at packing]" }
+    },
+    {
+      "id": "IN-LM-MFD",
+      "name": "Date of manufacture or packing missing",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "Legal Metrology (Packaged Commodities) Rules, 2011, Rule 6 and FSS (Labelling and Display) Regulations, 2020: date of manufacture or packing",
+      "source": { "label": "Legal Metrology (Packaged Commodities) Rules, 2011", "url": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf" },
+      "verified": true,
+      "match": { "when": "absent", "regex": "\\b(?:mfd|mfg|pkd)\\b|date\\s+of\\s+(?:manufacture|packing)|manufactured\\s+on|packed\\s+on" },
+      "explanation": "No date of manufacture or packing was found. Quick-commerce and online channels use it with the best-before date to work out shelf life.",
+      "advice": "Add \"Mfd. on: [month/year]\", printed at packing.",
+      "fix": { "type": "append_line", "line": "Mfd. on: [month/year, printed at packing]" }
+    },
+    {
+      "id": "IN-FSSAI-PH",
+      "name": "Placeholder still on the label",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "FSS (Labelling and Display) Regulations, 2020 and Legal Metrology Rule 6: declarations must state the real values",
+      "source": { "label": "FSSAI regulations", "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php" },
+      "verified": true,
+      "match": { "when": "placeholder" },
+      "explanation": "This is a placeholder, not a real value. A required declaration with a placeholder is still missing.",
+      "advice": "Replace it with the real value (Fix all has a form for this).",
+      "fix": { "type": "manual" }
+    },
+    {
+      "id": "IN-FSSAI-NC-001",
+      "name": "Nutrient claim without a nutrition line",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "FSS (Advertising and Claims) Regulations, 2018: a nutrient content claim needs the nutrient's amount in the nutritional information",
+      "source": { "label": "FSSAI regulations", "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php" },
+      "verified": true,
+      "match": { "when": "nutrient_backing" },
+      "explanation": "The label makes a nutrient claim, but the nutrition table has no line for that nutrient to back it up.",
+      "advice": "Add this nutrient's amount per 100 g / 100 ml to the nutritional information, or remove the claim.",
+      "fix": { "type": "manual" }
+    },
+    {
+      "id": "IN-FSSAI-NC-002",
+      "name": "Nutrient claim doesn't meet the threshold",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "FSS (Advertising and Claims) Regulations, 2018, Schedule I. Thresholds here follow Codex per 100 g / 100 ml and still need checking against Schedule I",
+      "source": { "label": "FSSAI regulations", "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php" },
+      "verified": false,
+      "match": { "when": "nutrient_threshold" },
+      "explanation": "The nutrition table doesn't support this claim's threshold.",
+      "advice": "Reformulate to meet the threshold, or use a weaker claim (e.g. \"source of\") or none.",
       "fix": { "type": "manual" }
     }
   ],

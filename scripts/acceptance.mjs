@@ -28,7 +28,8 @@ async function postCheck({ text = "", market = "us", channels = [], rejection = 
 
 async function postImage(bytes, type) {
   const form = new FormData();
-  form.append("image", new Blob([bytes], { type }), "label.png");
+  form.append("files", new Blob([bytes], { type }), "label.png");
+  form.append("panels", "front");
   const res = await fetch(`${BASE}/api/read-image`, { method: "POST", body: form });
   return { http: res.status, body: await res.json() };
 }
@@ -86,20 +87,33 @@ expect("allergen line generated in FDA style", report?.allergenStatement === "Co
 expect("every flag has a source link", report?.flags.every((f) => /^https:\/\//.test(f.source.url)));
 
 console.log("\nConsistency: the granola label gets the same verdict every time (5 runs, US)");
+const verdicts = [];
 for (let i = 1; i <= 5; i++) {
   const run = await postCheck({ text: INPUT_B });
   const flags = run.body.report?.flags ?? [];
-  const summary = flags.map((f) => `${f.ruleId} "${f.quotedText}"`).join(", ") || run.body.message;
+  const summary = flags.map((f) => `${f.ruleId}${f.quotedText ? ` "${f.quotedText}"` : ""}`).join(", ") || run.body.message;
+  verdicts.push(summary);
   expect(
     `run ${i}: no disease claim, peanut butter only as LOW advice, milk declared`,
     run.body.status === "ok" &&
-      !flags.some((f) => f.ruleId === "US-FDA-DC-001") &&
-      flags.length === 1 &&
-      flags[0].ruleId === "US-FDA-ALG-002" &&
-      flags[0].quotedText === "peanut butter",
+      !flags.some((f) => f.ruleId === "US-FDA-DC-001" || f.ruleId === "US-FDA-ALG-001") &&
+      flags.some((f) => f.ruleId === "US-FDA-ALG-002" && f.quotedText === "peanut butter"),
     summary,
   );
   expect(`run ${i}: under 10 seconds`, run.seconds < 10, `${run.seconds.toFixed(1)} s`);
+}
+expect("all 5 runs flag exactly the same issues", new Set(verdicts).size === 1);
+
+console.log("\nMinimum completeness");
+const abc = await postCheck({ text: "abc" });
+expect('"abc" asks for label text (too short to be a label)', asksForLabel(abc), abc.body.message);
+for (const [market, expected] of [
+  ["us", ["US-FDA-NET-001", "US-FDA-ING-001", "US-FDA-NUT-001", "US-FDA-MFR-001"]],
+  ["india", ["IN-FSSAI-ING", "IN-FSSAI-NUT", "IN-FSSAI-LIC", "IN-LM-NET", "IN-LM-MRP", "IN-LM-CARE", "IN-LM-MFD"]],
+]) {
+  const r = await postCheck({ text: "Granola bar", market });
+  const got = r.body.report?.flags.map((f) => f.ruleId) ?? [];
+  expect(`one-line label (${market}): every missing mandatory element flagged`, expected.every((id) => got.includes(id)), got.join(", ") || r.body.message);
 }
 
 console.log("\nTest 3: bad input asks for label text, no flags, no crash");
@@ -159,7 +173,7 @@ expect(
   amazonUs.body.report?.flags.some((f) => f.ruleId === "AMZ-US-001" && f.quotedText === "Supports healthy blood sugar" && !f.verified),
 );
 const makhana =
-  "Masala makhana. Veg. Net quantity: 80 g. MRP ₹99 (incl. of all taxes). Best before 2 months from manufacture.\nIngredients: fox nuts, rice bran oil, spices, salt.\nManufactured by: Good Snacks Pvt Ltd, Pune. FSSAI Lic. No. 11523999000123";
+  "Masala makhana. Veg. Net quantity: 80 g. MRP ₹99 (incl. of all taxes). Mfd. on: 10/2026. Best before 2 months from manufacture. Batch No.: MK2610.\nIngredients: fox nuts, rice bran oil, spices, salt.\nNutritional information per 100 g / per serve (20 g): Energy 480 kcal / 96 kcal, Protein 9 g / 1.8 g, Total fat 22 g / 4.4 g, Sodium 610 mg / 122 mg.\nManufactured by: Good Snacks Pvt Ltd, Pune. Country of origin: India. Customer care: 1800 123 4567 | care@goodsnacks.in\nFSSAI Lic. No. 11523999000123 · EAN 8901234567890";
 const india = await postCheck({ text: makhana, market: "india", channels: ["amazon-in", "flipkart-minutes"] });
 const shelf = india.body.report?.flags.find((f) => f.ruleId === "AMZ-IN-001");
 expect("2-month shelf life flagged for Amazon India only", shelf && shelf.channels.join() === "amazon-in", shelf?.quotedText);

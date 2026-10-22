@@ -4,8 +4,15 @@ export type Severity = "high" | "medium" | "low";
 export type RuleMatch =
   // "present": flag each sentence that uses a listed word (outside the ingredient list).
   | { when: "present"; words?: string[]; regex?: string }
-  // "absent": flag once when a required declaration is missing from the label.
-  | { when: "absent"; regex: string }
+  // "absent": flag once when a required declaration is missing from the label
+  // (only when `onlyIf` matches, if given — e.g. a tax phrase only matters when an MRP is printed).
+  | { when: "absent"; regex: string; onlyIf?: string }
+  // "placeholder": flag every unfilled placeholder ([MRP], XXXXXXXX, 12345678901234…).
+  | { when: "placeholder" }
+  // Nutrient content claims ("High protein") checked against the nutrition table:
+  // "nutrient_backing" = the claimed nutrient has no line in the table; "nutrient_threshold" = its value misses the threshold.
+  | { when: "nutrient_backing" }
+  | { when: "nutrient_threshold" }
   // "shelf_life": read the declared best-before period and flag it if it is shorter than minDays.
   | { when: "shelf_life"; minDays: number }
   // "confirm": can't be judged from label text; always listed as something to confirm.
@@ -15,6 +22,8 @@ export type RuleMatch =
 export type RuleFix =
   | { type: "remove_sentence" }
   | { type: "append_line"; line: string }
+  // A placeholder the user fills in through Fix all's "Fill missing label facts" form.
+  | { type: "fill_in" }
   | { type: "manual" };
 
 export type Source = { label: string; url: string };
@@ -30,6 +39,8 @@ export type Rule = {
   verified: boolean;
   aiGuidance?: string;
   match?: RuleMatch;
+  // A symbol a photo can show (veg mark, barcode): when vision saw it, the rule passes.
+  visualKey?: keyof VisualFindings;
   explanation?: string;
   advice?: string;
   fix?: RuleFix;
@@ -44,6 +55,19 @@ export type Allergen = {
   nameSpecific?: boolean;
 };
 
+// A nutrient content claim and the threshold it must meet ("High protein" → protein ≥ 10 g).
+export type NutrientClaim = {
+  claim: string;
+  pattern: string;
+  nutrient: "protein" | "fiber" | "fat" | "sugar" | "transFat" | "sodium";
+  op: "min" | "max" | "lt";
+  value: number;
+  unit: "g" | "mg";
+};
+
+// What vision saw on uploaded artwork. Undefined = no photo, so nothing is assumed.
+export type VisualFindings = { vegMark?: boolean; fssaiLogo?: boolean; barcode?: boolean };
+
 // A market's base rules: claims (AI), allergens and label declarations (code).
 export type RulePack = {
   id: string;
@@ -52,9 +76,19 @@ export type RulePack = {
   allergenRuleId: string;
   // Optional low-severity rule for allergens already named by the ingredient itself.
   allergenAdviceRuleId?: string;
+  // Rule raised when the AI finds no product name (statement of identity).
+  identityRuleId?: string;
+  // Thresholds are per serving (US, RACC) or per 100 g / 100 ml (India).
+  nutrientBasis: string;
+  nutrientClaims: NutrientClaim[];
+  // Things only the printed artwork can show; listed for the user to confirm.
+  visualChecklist: string[];
   rules: Rule[];
   allergens: Allergen[];
 };
+
+// A product category adds rules per market (e.g. "NOT FOR MEDICINAL USE" on Indian supplements).
+export type Category = { id: string; label: string; rules: Record<string, Rule[]> };
 
 // A sales channel adds its own rules on top of its market's pack.
 export type Channel = {
@@ -107,7 +141,10 @@ export type Report = {
   market: string;
   packLabel: string;
   packVersion: string;
+  category: { id: string; label: string };
   channels: { id: string; label: string; note?: string }[];
+  visualChecklist: string[];
+  visual: VisualFindings | null;
   labelText: string;
   flags: Flag[];
   ruleStatuses: RuleStatus[];
@@ -134,6 +171,8 @@ export type CheckResponse =
     }
   | { status: "needs_text" | "error"; message: string };
 
+export type PanelId = "front" | "back" | "nutrition";
+
 export type ReadImageResponse =
-  | { status: "ok"; text: string }
+  | { status: "ok"; text: string; panels: Partial<Record<PanelId, string>>; visual: VisualFindings }
   | { status: "needs_text" | "error"; message: string };

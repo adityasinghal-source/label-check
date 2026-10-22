@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+// Copies text, then says so for 2 seconds (announced to screen readers too).
 export default function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
 
@@ -20,16 +21,18 @@ export default function CopyButton({ text, label = "Copy" }: { text: string; lab
       box.remove();
     }
     setState(ok ? "copied" : "failed");
-    setTimeout(() => setState("idle"), 2500);
+    setTimeout(() => setState("idle"), 2000);
   }
 
   return (
     <button
       type="button"
       onClick={copy}
-      className="shrink-0 rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink hover:bg-raised"
+      className={`shrink-0 rounded-md border px-2.5 py-1 text-xs font-semibold print:hidden ${
+        state === "copied" ? "border-pass bg-pass-soft text-pass" : "border-line bg-surface text-ink hover:bg-raised"
+      }`}
     >
-      {state === "copied" ? "Copied" : state === "failed" ? "Blocked: select the text" : label}
+      <span aria-live="polite">{state === "copied" ? "✓ Copied!" : state === "failed" ? "Blocked: select the text" : label}</span>
     </button>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import CopyButton from "@/components/CopyButton";
-import { card, chip, sectionLabel } from "@/components/styles";
+import { card, chip, chipUnverified, sectionLabel } from "@/components/styles";
 import { findRule } from "@/lib/rulepacks";
 import type { Explanation, Flag } from "@/lib/types";
 
@@ -64,7 +64,7 @@ export default function RejectionCard({
               return (
                 <li key={id}>
                   <span className="font-mono text-xs">{id}</span> {rule?.name}
-                  {rule && !rule.verified && <span className={`${chip} ml-2 bg-raised text-muted`}>Unverified</span>}
+                  {rule && !rule.verified && <span className={`${chip} ml-2 ${chipUnverified}`}>Unverified</span>}
                 </li>
               );
             })}

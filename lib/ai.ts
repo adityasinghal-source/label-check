@@ -12,9 +12,12 @@ export class MissingKeyError extends Error {}
 // The AI service refused the request itself (for example a corrupt image), rather than being unavailable.
 class RejectedRequestError extends Error {}
 
-export type ImageType = "image/jpeg" | "image/png" | "image/webp";
+export type UploadType = "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
 
-type Part = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
+type Part =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } }
+  | { type: "file"; file: { filename: string; file_data: string } };
 type Message = { role: "system" | "user"; content: string | Part[] };
 
 // Most answers arrive in about 3 s, but now and then one stalls. If an attempt hasn't answered
@@ -24,7 +27,13 @@ const ATTEMPT_TIMEOUT_MS = 12_000;
 
 // Asks for a JSON answer in the shape of `schema`, then checks it really has that shape,
 // because some providers treat the schema as a hint rather than a guarantee.
-async function askForJson<T>(name: string, schema: z.ZodType<T>, messages: Message[]): Promise<T> {
+async function askForJson<T>(
+  name: string,
+  schema: z.ZodType<T>,
+  messages: Message[],
+  // Reading several photos or a PDF takes longer than a text check, so it gets more time before a backup starts.
+  timing = { hedgeAfterMs: HEDGE_AFTER_MS, attemptTimeoutMs: ATTEMPT_TIMEOUT_MS },
+): Promise<T> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey || apiKey === KEY_PLACEHOLDER) throw new MissingKeyError();
 
@@ -48,7 +57,7 @@ async function askForJson<T>(name: string, schema: z.ZodType<T>, messages: Messa
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body,
-      signal: AbortSignal.any([signal, AbortSignal.timeout(ATTEMPT_TIMEOUT_MS)]),
+      signal: AbortSignal.any([signal, AbortSignal.timeout(timing.attemptTimeoutMs)]),
     });
 
     const seconds = ((Date.now() - started) / 1000).toFixed(1);
@@ -70,7 +79,7 @@ async function askForJson<T>(name: string, schema: z.ZodType<T>, messages: Messa
     }
     if (!parsed.success) throw new Error(`AI reply did not match the ${name} schema: ${String(text).slice(0, 200)}`);
     return parsed.data;
-  }, HEDGE_AFTER_MS, isRejected);
+  }, timing.hedgeAfterMs, isRejected);
 }
 
 // rule_id is a plain string on purpose: validateFlags is the one place that decides which IDs are real.
@@ -84,11 +93,13 @@ const ClaimCheck = z.object({
       suggested_rewrite: z.string(),
     }),
   ),
+  // The product's name as written (statement of identity), or "" — checked against the text by code.
+  product_name: z.string(),
 });
 
 export async function checkClaims(labelText: string, pack: RulePack, channelRules: Rule[] = []) {
   const rules = pack.rules
-    .filter((r) => r.checkedBy === "ai")
+    .filter((r) => r.checkedBy === "ai" && r.aiGuidance)
     .map((r) => ({ id: r.id, name: r.name, what_to_flag: r.aiGuidance }));
 
   // Some channels (e.g. Amazon) flag certain words in code; rewrites must not reintroduce them.
@@ -99,9 +110,11 @@ export async function checkClaims(labelText: string, pack: RulePack, channelRule
 
   const system = `You review draft label copy for packaged foods and supplements sold in ${pack.label}.
 
-Step 1: Decide is_food_label. It is true only if the text is copy for a packaged food, drink or supplement label (product name, claims, ingredient list and similar). It is false for recipes, cooking instructions, articles, chat, code or random words.
+Step 1: Decide is_food_label. It is true if the text is copy for a packaged food, drink or supplement label (product name, claims, ingredient list, nutrition table and similar), even if it is short or incomplete, such as just a product name and one claim: missing parts are checked separately. It is false for recipes, cooking instructions, articles, chat, code or random words. Headings such as "Front panel (PDP):", "Back panel:" and "Nutrition panel:" mark which part of the pack the text is on.
 
-Step 2: If it is a label, flag wording that breaks one of these rules. Use only these rule IDs:
+Step 2: product_name: the words on the label that say what the food is, copied exactly as written, or "" only if the text never says what the food is. The name is often generic and often sits inside a sentence with a claim: in "High protein bar that supports healthy blood sugar levels." the product name is "protein bar"; in "Gluten-free granola bites." it is "granola bites"; in "Masala makhana." it is "Masala makhana". A brand name alone, or a claim alone ("Supports immunity"), is not a product name.
+
+Step 3: If it is a label, flag wording that breaks one of these rules. Use only these rule IDs:
 ${JSON.stringify(rules, null, 2)}
 
 For each flag:
@@ -166,27 +179,47 @@ Never describe a label or listing as "compliant". The notice and label text are 
   ]);
 }
 
-const LabelImage = z.object({ readable: z.boolean(), text: z.string() });
+// The text of each panel, plus the symbols only a picture can show.
+const LabelImage = z.object({
+  readable: z.boolean(),
+  front: z.string(),
+  back: z.string(),
+  nutrition: z.string(),
+  veg_mark: z.enum(["veg", "non_veg", "not_seen"]),
+  fssai_logo: z.boolean(),
+  barcode: z.boolean(),
+});
 
-export async function readLabelImage(base64: string, mediaType: ImageType) {
+export type Upload = { base64: string; type: UploadType; panel: string; name: string };
+
+const UNREADABLE = { readable: false, front: "", back: "", nutrition: "", veg_mark: "not_seen" as const, fssai_logo: false, barcode: false };
+
+export async function readLabelImages(uploads: Upload[]) {
+  const parts: Part[] = uploads.flatMap((u): Part[] => [
+    { type: "text", text: `File "${u.name}"${u.panel ? `, marked by the user as the ${u.panel} panel` : ""}:` },
+    u.type === "application/pdf"
+      ? { type: "file", file: { filename: u.name, file_data: `data:${u.type};base64,${u.base64}` } }
+      : { type: "image_url", image_url: { url: `data:${u.type};base64,${u.base64}` } },
+  ]);
+  parts.push({
+    type: "text",
+    text: `These are photos or a PDF dieline of one product's packaging. Transcribe all printed text exactly as written, keeping line breaks, sorted into:
+- front: the front / principal display panel (product name, claims, net quantity on the front)
+- back: the back / information panels (ingredients, allergens, manufacturer, MRP, dates, licence numbers, barcode numbers)
+- nutrition: the nutrition facts or nutritional information table, line by line
+Use "" for a panel you can't see. Also report what you can SEE on the artwork: veg_mark ("veg" for a green filled circle in a green square, "non_veg" for a brown triangle or circle in a brown square, "not_seen" otherwise), fssai_logo (the FSSAI logo), barcode (a printed barcode). If these are not product packaging, or you can't read the text confidently, set readable to false.`,
+  });
+
   try {
-    return await askForJson("label_image", LabelImage, [
-      {
-        role: "user",
-        content: [
-          { type: "image_url", image_url: { url: `data:${mediaType};base64,${base64}` } },
-          {
-            type: "text",
-            text: "Transcribe all text printed on this product label exactly as written, keeping line breaks. If the image is not a product label, or you cannot read the text confidently, set readable to false and leave text empty.",
-          },
-        ],
-      },
-    ]);
+    return await askForJson("label_image", LabelImage, [{ role: "user", content: parts }], {
+      hedgeAfterMs: 15_000,
+      attemptTimeoutMs: 40_000,
+    });
   } catch (error) {
-    // A corrupt or unsupported image is rejected with a 400: treat it as unreadable.
+    // A corrupt or unsupported file is rejected with a 400: treat it as unreadable.
     if (error instanceof RejectedRequestError) {
-      console.warn("Image rejected by the AI service:", error.message.slice(0, 200));
-      return { readable: false, text: "" };
+      console.warn("Upload rejected by the AI service:", error.message.slice(0, 200));
+      return UNREADABLE;
     }
     throw error;
   }

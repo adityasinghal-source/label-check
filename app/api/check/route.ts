@@ -1,12 +1,12 @@
 import { checkClaims, explainRejection, MissingKeyError } from "@/lib/ai";
 import { checkAllergens } from "@/lib/allergens";
 import { buildReport, noCompliant } from "@/lib/buildReport";
-import { checkCodeRules } from "@/lib/codeRules";
+import { checkCodeRules, ruleFlag } from "@/lib/codeRules";
 import { checkInput } from "@/lib/inputGuard";
 import { MESSAGES } from "@/lib/messages";
-import { allRules, getChannels, getMarket, onlineRules } from "@/lib/rulepacks";
+import { allRules, getCategory, getChannels, getMarket, layersFor } from "@/lib/rulepacks";
 import { findQuote } from "@/lib/sentences";
-import type { CheckResponse, Explanation, Flag } from "@/lib/types";
+import type { CheckResponse, Explanation, Flag, VisualFindings } from "@/lib/types";
 import { validateFlags } from "@/lib/validateFlags";
 import { connection } from "next/server";
 
@@ -33,6 +33,12 @@ export async function POST(request: Request) {
   const market = getMarket(body.market);
   if (!market) return reply({ status: "error", message: MESSAGES.chooseMarket });
   const channels = getChannels(market.id, body.channels);
+  const category = getCategory(body.category);
+  // What vision saw on uploaded artwork (only true values count; nothing is assumed without a photo).
+  const visual: VisualFindings | null =
+    body.visual && typeof body.visual === "object"
+      ? { vegMark: body.visual.vegMark === true, fssaiLogo: body.visual.fssaiLogo === true, barcode: body.visual.barcode === true }
+      : null;
 
   if (!isFilled(body.text) && !isFilled(body.rejection)) {
     return reply({ status: "needs_text", message: MESSAGES.pasteLabel });
@@ -57,14 +63,11 @@ export async function POST(request: Request) {
 
   // Plain-code checks are instant, so they run first and their findings go to the rejection explainer.
   const allergens = labelText ? checkAllergens(labelText, market.pack) : null;
+  const context = { nutrientClaims: market.pack.nutrientClaims, nutrientBasis: market.pack.nutrientBasis, visual };
   const codeFlags: Flag[] = labelText
-    ? [
-        ...checkCodeRules(labelText, market.pack.rules),
-        ...(channels.length ? checkCodeRules(labelText, onlineRules(market.id), channels.map((c) => c.id)) : []),
-        ...channels.flatMap((c) => checkCodeRules(labelText, c.rules, [c.id])),
-      ]
+    ? layersFor(market, channels, category).flatMap((layer) => checkCodeRules(labelText, layer.rules, layer.channels, context))
     : [];
-  const rules = allRules(market, channels);
+  const rules = allRules(market, channels, category);
   const sellingThrough = channels.length ? channels.map((c) => c.label).join(", ") : market.label;
   const issuesFound = [...(allergens?.flags ?? []), ...codeFlags].filter((f) => !f.confirmOnly);
 
@@ -72,7 +75,7 @@ export async function POST(request: Request) {
   let claims, explained;
   try {
     [claims, explained] = await Promise.all([
-      labelText ? checkClaims(labelText, market.pack, channels.flatMap((c) => c.rules)) : null,
+      labelText ? checkClaims(labelText, market.pack, rules) : null,
       rejectionText ? explainRejection(rejectionText, labelText ?? "", rules, sellingThrough, issuesFound) : null,
     ]);
   } catch (error) {
@@ -87,7 +90,11 @@ export async function POST(request: Request) {
   if (labelText && claims && allergens) {
     const { flags, dropped } = validateFlags(claims.flags, labelText, market.pack);
     if (dropped > 0) console.warn(`Dropped ${dropped} AI flag(s) without a valid rule ID or real quote`);
-    report = buildReport({ market, channels, labelText, aiFlags: flags, allergens, codeFlags, droppedAiFlags: dropped });
+    // Statement of identity: the AI names the product; code checks the name is really on the label.
+    const identity = market.pack.rules.find((r) => r.id === market.pack.identityRuleId);
+    const name = claims.product_name.trim();
+    if (identity && (!name || !findQuote(labelText, name))) flags.push(ruleFlag(identity, "", [], { foundBy: "ai" }));
+    report = buildReport({ market, channels, category, visual, labelText, aiFlags: flags, allergens, codeFlags, droppedAiFlags: dropped });
   }
 
   let explanation: Explanation | null = null;

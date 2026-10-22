@@ -1,6 +1,6 @@
 import type { AllergenResult } from "./allergens";
-import type { Market } from "./rulepacks";
-import type { Channel, Flag, Report, RuleStatus } from "./types";
+import { CATEGORIES, type Market } from "./rulepacks";
+import type { Category, Channel, Flag, Report, RuleStatus, VisualFindings } from "./types";
 
 // This tool can only say "no issues found against this rule pack", never that a label is compliant.
 export function noCompliant(s: string) {
@@ -12,6 +12,8 @@ const SEVERITY_ORDER = { high: 0, medium: 1, low: 2 };
 export function buildReport({
   market,
   channels = [],
+  category = CATEGORIES[0],
+  visual = null,
   labelText,
   aiFlags,
   allergens,
@@ -20,6 +22,8 @@ export function buildReport({
 }: {
   market: Market;
   channels?: Channel[];
+  category?: Category;
+  visual?: VisualFindings | null;
   labelText: string;
   aiFlags: Flag[];
   allergens: AllergenResult;
@@ -59,7 +63,10 @@ export function buildReport({
     market: market.id,
     packLabel: pack.label,
     packVersion: pack.version,
+    category: { id: category.id, label: category.label },
     channels: channels.map((c) => ({ id: c.id, label: c.label, note: c.note })),
+    visualChecklist: pack.visualChecklist,
+    visual,
     labelText,
     flags,
     ruleStatuses,

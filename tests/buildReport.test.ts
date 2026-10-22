@@ -30,11 +30,8 @@ describe("buildReport", () => {
     const r = report("Bar. Ingredients: oats, dates");
     expect(r.packVersion).toBe("0.1");
     expect(noIssuesHeading(r.packVersion)).toBe("No issues found against rule pack v0.1");
-    expect(r.ruleStatuses.map((s) => [s.ruleId, s.status])).toEqual([
-      ["US-FDA-DC-001", "no_issues"],
-      ["US-FDA-ALG-001", "no_issues"],
-      ["US-FDA-ALG-002", "no_issues"],
-    ]);
+    const status = (id: string) => r.ruleStatuses.find((s) => s.ruleId === id)?.status;
+    expect(["US-FDA-DC-001", "US-FDA-ALG-001", "US-FDA-ALG-002"].map(status)).toEqual(["no_issues", "no_issues", "no_issues"]);
   });
 
   it("lists the allergens that came back clean even when others are flagged", () => {
@@ -59,7 +56,7 @@ describe("buildReport", () => {
 
   it("marks the allergen rules as not checked when there is no ingredient list", () => {
     const r = report("Bar that helps manage diabetes", [aiFlag]);
-    expect(r.ruleStatuses.map((s) => [s.ruleId, s.status, s.note])).toEqual([
+    expect(r.ruleStatuses.filter((s) => s.status === "not_checked").map((s) => [s.ruleId, s.status, s.note])).toEqual([
       ["US-FDA-ALG-001", "not_checked", "No ingredient list found"],
       ["US-FDA-ALG-002", "not_checked", "No ingredient list found"],
     ]);

@@ -54,3 +54,29 @@ body {
   background: var(--color-page);
   color: var(--color-ink);
 }
+
+/* A short ring pulse to show where a click landed (a flag card, a phrase in the label). */
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 var(--color-brand); }
+  100% { box-shadow: 0 0 0 10px transparent; }
+}
+.pulse {
+  animation: pulse-ring 0.9s ease-out 2;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse { animation: none; outline: 2px solid var(--color-brand); }
+}
+
+/* Export PDF prints the report alone, in light colours. */
+@media print {
+  :root {
+    color-scheme: light;
+    --color-page: #ffffff;
+    --color-surface: #ffffff;
+    --color-raised: #f1f3f0;
+    --color-ink: #111111;
+    --color-muted: #444444;
+  }
+  .report-print { break-inside: auto; }
+  .report-print li, .report-print section { break-inside: avoid; }
+}
