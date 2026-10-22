@@ -1,0 +1,106 @@
+// Runs the 3 acceptance tests against the running app (npm run dev first).
+// Uses the real AI, so it needs your API key in .env.local and costs a few cents.
+import { crc32, deflateSync } from "node:zlib";
+
+const BASE = process.env.BASE_URL ?? "http://localhost:3000";
+const LABEL =
+  "High protein bar that helps manage diabetes. Ingredients: oats, whey protein concentrate, dates, almonds";
+const PASTA_RECIPE =
+  "Ingredients: 400g spaghetti, 2 cloves garlic, olive oil, parmesan. Boil the pasta for 10 minutes, fry the garlic in oil, toss together and serve.";
+
+let failures = 0;
+function expect(name, ok, detail = "") {
+  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? `  (${detail})` : ""}`);
+  if (!ok) failures++;
+}
+
+async function postCheck(text, packId = "us-fda") {
+  const started = Date.now();
+  const res = await fetch(`${BASE}/api/check`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, packId }),
+  });
+  return { http: res.status, body: await res.json(), seconds: (Date.now() - started) / 1000 };
+}
+
+async function postImage(bytes, type) {
+  const form = new FormData();
+  form.append("image", new Blob([bytes], { type }), "label.png");
+  const res = await fetch(`${BASE}/api/read-image`, { method: "POST", body: form });
+  return { http: res.status, body: await res.json() };
+}
+
+// A plain white PNG: a valid image with no text on it.
+function blankPng(width = 300, height = 200) {
+  const chunk = (type, data) => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const typed = Buffer.concat([Buffer.from(type), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(typed));
+    return Buffer.concat([length, typed, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8; // bit depth
+  header[9] = 2; // RGB
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(width * 3, 255)]);
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk("IHDR", header),
+    chunk("IDAT", deflateSync(Buffer.concat(Array(height).fill(row)))),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+const asksForLabel = (r) =>
+  r.http === 200 && r.body.status === "needs_text" && /paste your label text/i.test(r.body.message) && !r.body.report;
+
+console.log(`Testing ${BASE}\n\nTest 1: disease claim flagged within 10 seconds (5 runs)`);
+const runs = [];
+for (let i = 0; i < 5; i++) runs.push(await postCheck(LABEL));
+for (const [i, run] of runs.entries()) {
+  const flag = run.body.report?.flags.find((f) => f.ruleId === "US-FDA-DC-001");
+  expect(
+    `run ${i + 1}: US-FDA-DC-001, high, quotes "helps manage diabetes", has rewrite`,
+    flag?.severity === "high" && /helps manage diabetes/i.test(flag.quotedText) && flag.suggestedRewrite.length > 0,
+    run.body.status === "ok" ? `rewrite: ${flag?.suggestedRewrite ?? "none"}` : run.body.message,
+  );
+  expect(`run ${i + 1}: under 10 seconds`, run.seconds < 10, `${run.seconds.toFixed(1)} s`);
+}
+
+console.log("\nTest 2: allergens, version, no-issues wording");
+const report = runs[0].body.report;
+const allergenQuotes = report?.flags.filter((f) => f.ruleId === "US-FDA-ALG-001").map((f) => f.quotedText) ?? [];
+expect("whey protein concentrate flagged as undeclared milk", allergenQuotes.includes("whey protein concentrate"));
+expect("almonds flagged as undeclared tree nut", allergenQuotes.includes("almonds"));
+expect("report shows rule pack v0.1", report?.packVersion === "0.1");
+expect("report has a no-issues entry", report?.ruleStatuses.some((r) => r.status === "no_issues"));
+expect('never says "compliant"', !JSON.stringify(runs.map((r) => r.body)).toLowerCase().includes("compliant"));
+
+console.log("\nTest 3: bad input asks for label text, no flags, no crash");
+for (const [name, text] of [
+  ["empty text", ""],
+  ["pasta recipe", PASTA_RECIPE],
+  ["random words", "banana keyboard purple sunset violin"],
+]) {
+  const r = await postCheck(text);
+  expect(name, asksForLabel(r), r.body.message);
+}
+for (const [name, bytes] of [
+  ["blank image", blankPng()],
+  ["corrupt image file", Buffer.from("this is not really a png")],
+]) {
+  const r = await postImage(bytes, "image/png");
+  expect(name, asksForLabel(r), r.body.message);
+}
+
+console.log("\nFSSAI smoke check");
+const fssai = await postCheck(LABEL, "fssai");
+const ids = fssai.body.report?.flags.map((f) => f.ruleId) ?? [];
+expect("only FSSAI rule IDs", ids.length > 0 && ids.every((id) => id.startsWith("FSSAI-")), ids.join(", "));
+
+console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);
+process.exit(failures === 0 ? 0 : 1);

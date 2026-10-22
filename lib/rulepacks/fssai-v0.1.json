@@ -1,0 +1,78 @@
+{
+  "id": "fssai",
+  "label": "India (FSSAI)",
+  "version": "0.1",
+  "allergenRuleId": "FSSAI-ALG-001",
+  "rules": [
+    {
+      "id": "FSSAI-DC-001",
+      "name": "Claim to prevent, treat or cure a disease",
+      "severity": "high",
+      "checkedBy": "ai",
+      "citation": "Food Safety and Standards Act, 2006; FSS (Advertising and Claims) Regulations, 2018",
+      "aiGuidance": "Wording that says or implies the food prevents, treats, cures, manages or alleviates a disease or medical condition (for example diabetes, high blood pressure, heart disease, cancer, arthritis). Food labels in India may not make such claims."
+    },
+    {
+      "id": "FSSAI-ALG-001",
+      "name": "Allergen not declared",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "FSS (Labelling and Display) Regulations, 2020 (declaration of food allergens)"
+    }
+  ],
+  "allergens": [
+    {
+      "name": "Gluten",
+      "keywords": ["wheat", "semolina", "durum", "spelt", "barley", "rye", "oat", "malt", "maida", "atta", "sooji", "suji"],
+      "exclude": ["buckwheat"],
+      "declaredBy": ["gluten", "wheat", "barley", "rye", "oat", "spelt"],
+      "nameSpecific": true
+    },
+    {
+      "name": "Crustaceans",
+      "keywords": ["shrimp", "prawn", "crab", "lobster", "crayfish", "krill"],
+      "declaredBy": ["crustacean", "shellfish", "shrimp", "prawn", "crab", "lobster", "crayfish", "krill"],
+      "nameSpecific": true
+    },
+    {
+      "name": "Milk",
+      "keywords": ["milk", "whey", "casein", "caseinate", "butter", "buttermilk", "cream", "cheese", "yogurt", "yoghurt", "lactose", "ghee", "lactalbumin", "curd", "dahi", "paneer", "khoa"],
+      "exclude": ["peanut butter", "cocoa butter", "shea butter", "nut butter", "almond butter", "cashew butter", "almond milk", "oat milk", "soy milk", "rice milk", "coconut milk", "coconut cream", "cream of tartar"],
+      "declaredBy": ["milk", "dairy"]
+    },
+    {
+      "name": "Egg",
+      "keywords": ["egg", "albumen", "albumin", "mayonnaise", "meringue"],
+      "exclude": ["eggplant", "lactalbumin"],
+      "declaredBy": ["egg"]
+    },
+    {
+      "name": "Fish",
+      "keywords": ["fish", "anchovy", "anchovies", "salmon", "tuna", "cod", "tilapia", "sardine", "mackerel", "pollock"],
+      "exclude": ["shellfish"],
+      "declaredBy": ["fish", "anchovy", "anchovies", "salmon", "tuna", "cod", "tilapia", "sardine", "mackerel", "pollock"],
+      "nameSpecific": true
+    },
+    {
+      "name": "Peanuts",
+      "keywords": ["peanut", "groundnut", "arachis"],
+      "declaredBy": ["peanut", "groundnut"]
+    },
+    {
+      "name": "Tree nuts",
+      "keywords": ["almond", "cashew", "walnut", "pecan", "pistachio", "hazelnut", "macadamia", "brazil nut", "pine nut"],
+      "declaredBy": ["almond", "cashew", "walnut", "pecan", "pistachio", "hazelnut", "macadamia", "brazil nut", "pine nut"],
+      "nameSpecific": true
+    },
+    {
+      "name": "Soybeans",
+      "keywords": ["soy", "soya", "soybean", "edamame", "tofu"],
+      "declaredBy": ["soy", "soya", "soybean"]
+    },
+    {
+      "name": "Sulphites",
+      "keywords": ["sulphite", "sulfite", "metabisulphite", "metabisulfite", "sulphur dioxide", "sulfur dioxide"],
+      "declaredBy": ["sulphite", "sulfite"]
+    }
+  ]
+}
