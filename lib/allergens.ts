@@ -80,21 +80,38 @@ export function checkAllergens(labelText: string, pack: RulePack): AllergenResul
   const display = (h: Hit) => (h.allergen.nameSpecific ? `${h.allergen.name} (${h.matched})` : h.allergen.name);
   const suggestedContains = `Contains: ${hits.map(display).join(", ")}.`;
 
-  const undeclared = hits.filter((h) => !h.declared);
+  // In packs with an advice rule (US), an ingredient name that names the allergen ("almonds") already
+  // counts as the legal declaration, so it only gets a low-severity "add a Contains: line" note.
+  const advice = pack.rules.find((r) => r.id === pack.allergenAdviceRuleId);
+  const undeclared = hits.filter((h) => !h.declared && !(advice && h.namedInItem));
+  const adviceOnly = advice ? hits.filter((h) => !h.declared && h.namedInItem) : [];
   const clear = pack.allergens.filter((a) => !undeclared.some((h) => h.allergen === a)).map((a) => a.name);
+  const allergenName = (h: Hit) => h.allergen.name.toLowerCase();
 
-  const flags: Flag[] = undeclared.map((h) => ({
+  const flags: Flag[] = [
+    ...undeclared.map((h) => ({
       ruleId: rule.id,
       ruleName: rule.name,
       citation: rule.citation,
       severity: rule.severity,
       quotedText: h.item,
       explanation: h.namedInItem
-        ? `"${h.item}" is a source of ${h.allergen.name.toLowerCase()}. The ingredient name shows it, but there's no "Contains:" line declaring it.`
-        : `"${h.item}" is a source of ${h.allergen.name.toLowerCase()}, but the label never says so. Declare it in brackets after the ingredient or in a "Contains:" line.`,
+        ? `"${h.item}" is a source of ${allergenName(h)}. The ingredient name shows it, but there's no "Contains:" line declaring it.`
+        : `"${h.item}" is a source of ${allergenName(h)}, but the label never says so. Declare it in brackets after the ingredient or in a "Contains:" line.`,
       suggestedRewrite: suggestedContains,
-      foundBy: "code",
-    }));
+      foundBy: "code" as const,
+    })),
+    ...adviceOnly.map((h) => ({
+      ruleId: advice!.id,
+      ruleName: advice!.name,
+      citation: advice!.citation,
+      severity: advice!.severity,
+      quotedText: h.item,
+      explanation: `"${h.item}" names ${allergenName(h)}, which counts as declaring it. A "Contains:" line is optional, but it's common practice and easier for shoppers to spot.`,
+      suggestedRewrite: suggestedContains,
+      foundBy: "code" as const,
+    })),
+  ];
 
   return { checked: true, flags, clear };
 }

@@ -6,11 +6,19 @@ import { MESSAGES } from "@/lib/messages";
 import { getRulePack } from "@/lib/rulepacks";
 import type { CheckResponse } from "@/lib/types";
 import { validateFlags } from "@/lib/validateFlags";
+import { connection } from "next/server";
 
 export const maxDuration = 60;
 
 function reply(body: CheckResponse) {
   return Response.json(body);
+}
+
+// Warm-up ping from the page on load, so the first real check doesn't wait for the route to start.
+// connection() makes it run per request instead of being prerendered as a static file.
+export async function GET() {
+  await connection();
+  return Response.json({ ok: true });
 }
 
 export async function POST(request: Request) {

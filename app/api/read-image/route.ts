@@ -1,6 +1,7 @@
 import { MissingKeyError, readLabelImage, type ImageType } from "@/lib/ai";
 import { MESSAGES } from "@/lib/messages";
 import type { ReadImageResponse } from "@/lib/types";
+import { connection } from "next/server";
 
 export const maxDuration = 60;
 
@@ -9,6 +10,12 @@ const MAX_BYTES = 5 * 1024 * 1024;
 
 function reply(body: ReadImageResponse) {
   return Response.json(body);
+}
+
+// Warm-up ping from the page on load (see app/api/check/route.ts).
+export async function GET() {
+  await connection();
+  return Response.json({ ok: true });
 }
 
 export async function POST(request: Request) {

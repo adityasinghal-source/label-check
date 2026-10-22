@@ -19,10 +19,12 @@ Check a draft food or supplement label for risky claims and undeclared allergens
 | # | What I do | What must happen |
 |---|---|---|
 | 1 | Paste *"High protein bar that helps manage diabetes. Ingredients: oats, whey protein concentrate, dates, almonds"* and pick the **US (FDA)** rule pack | Within **10 seconds**, "helps manage diabetes" is flagged as a **high-severity disease claim**, with the rule ID and a rewrite I can copy |
-| 2 | Same label | **Whey protein concentrate** is flagged as undeclared **milk** and **almonds** as an undeclared **tree nut**, each with its rule. The report shows the rule-pack version and says **"No issues found against rule pack v0.1"** for anything not flagged. It never says "compliant" |
+| 2 | Same label | **Whey protein concentrate** is flagged as undeclared **milk** (HIGH), and **almonds** is flagged with its own rule (LOW: no "Contains:" line). The report shows the rule-pack version and says **"No issues found against rule pack v0.1"** for anything not flagged. It never says "compliant" |
 | 3 | Submit empty text, a pasta recipe, random words, or an unreadable image | A plain message asks me to paste label text. No flags are invented and nothing crashes. Any AI flag without a valid rule ID is dropped before I see it |
 
-**Status:** all 3 pass. `npm run acceptance` runs them against the live app, and two full runs in a row passed with checks taking 2.3–3.8 s.
+**Why test 2 changed:** the first version flagged "almonds" as HIGH "not declared". Under US law (FALCPA), an ingredient name that identifies the allergen ("almonds", "peanut butter") already counts as the declaration. Only hidden sources like *whey* are truly undeclared. Almonds now get a LOW "best practice" note instead.
+
+**Consistency check:** `npm run acceptance` also runs a second label five times and requires the same verdict every time: *"Gluten-free granola bites. Supports healthy blood sugar. Ingredients: rolled oats, peanut butter, honey, natural flavor (contains milk), sea salt"*.
 
 ---
 
@@ -64,7 +66,8 @@ Rule pack                                  "Compliant" filter               to a
 | Pack | Rule ID | Rule | Checked by |
 |---|---|---|---|
 | US (FDA) | `US-FDA-DC-001` | Disease claim (FD&C Act §201(g)(1); 21 CFR 101.93(g)) | AI |
-| US (FDA) | `US-FDA-ALG-001` | Major food allergen not declared (FD&C Act §403(w)) | Code |
+| US (FDA) | `US-FDA-ALG-001` | Major food allergen not declared, e.g. "whey" with no mention of milk (FD&C Act §403(w)) | Code |
+| US (FDA) | `US-FDA-ALG-002` | LOW: allergen named only by the ingredient ("almonds"), which is legal but has no "Contains:" line | Code |
 | India (FSSAI) | `FSSAI-DC-001` | Claim to prevent, treat or cure a disease (FSS Act 2006; Advertising & Claims Regs 2018) | AI |
 | India (FSSAI) | `FSSAI-ALG-001` | Allergen not declared, including gluten cereals like **oats** and sulphites (Labelling & Display Regs 2020) | Code |
 
@@ -113,11 +116,14 @@ Adding a market means adding one JSON file in `lib/rulepacks/`.
 | The AI misses a claim | Can't be caught automatically. The report never says "compliant" and lists exactly which rules were checked |
 | The AI flags something harmless, or suggests a weak rewrite | The quote, reason and rule are shown, and rewrites are labelled "AI-written, check before using" |
 | No ingredient list in the text | Allergen rule shown as **"Not checked: no ingredient list found"**, not "no issues" |
-| AI service down, slow (over 20 s) or returning a malformed answer | "The checker couldn't run. Please try again." No partial report |
+| AI answer slow (no reply in 6 s) | A backup request starts automatically, and whichever answers first wins |
+| AI service down, both attempts fail, or a malformed answer | "The checker couldn't run. Please try again." No partial report |
+| Borderline claims ("supports healthy blood sugar") | Each rule pack spells out what to flag and what not to flag, with a tie-break, so the same text gets the same verdict |
+| First check after starting the app | The page pings both API routes on load, so they're ready before you click |
 | Missing API key | "The checker isn't set up yet. Add your OpenRouter API key to .env.local…" |
 | Browser blocks the clipboard | Copy button says "Blocked: select the text" |
 
-**Known limitation:** US law accepts "almonds" in the ingredient list as the allergen declaration. The tool still flags it, explaining that there's no "Contains:" line, so the expert can decide.
+**Known limitations:** v0.1 doesn't check structure/function claims ("supports healthy blood sugar"), nutrient content claims ("high protein") or "gluten-free" claims. The FSSAI pack still treats a missing "Contains:" line as undeclared, because Indian allergen rules haven't been checked against the official text.
 
 ---
 
@@ -138,6 +144,14 @@ npm run dev
 ```
 
 Open http://localhost:3000, click **Use example label**, then **Check label**.
+
+**For a demo or judging,** use the production build instead. It's faster and never pauses to compile:
+
+```bash
+npm run demo
+```
+
+This runs `next build` and then `next start`. Open http://localhost:3000 once the build finishes.
 
 ### Tests
 

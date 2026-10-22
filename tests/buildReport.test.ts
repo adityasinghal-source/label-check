@@ -25,6 +25,7 @@ describe("buildReport", () => {
     expect(report.ruleStatuses.map((r) => [r.ruleId, r.status])).toEqual([
       ["US-FDA-DC-001", "no_issues"],
       ["US-FDA-ALG-001", "no_issues"],
+      ["US-FDA-ALG-002", "no_issues"],
     ]);
   });
 
@@ -35,13 +36,16 @@ describe("buildReport", () => {
     expect(allergenStatus.status).toBe("no_issues");
     expect(allergenStatus.note).toContain("egg");
     expect(allergenStatus.note).not.toContain("milk");
-    expect(allergenStatus.note).not.toContain("tree nuts");
+    // "almonds" names the tree nut, so it is legally declared and only gets the low-severity advice flag.
+    expect(allergenStatus.note).toContain("tree nuts");
+    expect(report.flags.find((f) => f.quotedText === "almonds")?.ruleId).toBe("US-FDA-ALG-002");
   });
 
-  it("marks the allergen rule as not checked when there is no ingredient list", () => {
+  it("marks the allergen rules as not checked when there is no ingredient list", () => {
     const report = buildReport(us, [aiFlag], checkAllergens("Bar that helps manage diabetes", us), 0);
-    expect(report.ruleStatuses).toEqual([
-      { ruleId: "US-FDA-ALG-001", ruleName: us.rules[1].name, status: "not_checked", note: "No ingredient list found" },
+    expect(report.ruleStatuses.map((r) => [r.ruleId, r.status, r.note])).toEqual([
+      ["US-FDA-ALG-001", "not_checked", "No ingredient list found"],
+      ["US-FDA-ALG-002", "not_checked", "No ingredient list found"],
     ]);
   });
 

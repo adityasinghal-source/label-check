@@ -73,17 +73,38 @@ for (const [i, run] of runs.entries()) {
 
 console.log("\nTest 2: allergens, version, no-issues wording");
 const report = runs[0].body.report;
-const allergenQuotes = report?.flags.filter((f) => f.ruleId === "US-FDA-ALG-001").map((f) => f.quotedText) ?? [];
-expect("whey protein concentrate flagged as undeclared milk", allergenQuotes.includes("whey protein concentrate"));
-expect("almonds flagged as undeclared tree nut", allergenQuotes.includes("almonds"));
+const quotesFor = (r, ruleId) => r?.flags.filter((f) => f.ruleId === ruleId).map((f) => f.quotedText) ?? [];
+expect("whey protein concentrate flagged as undeclared milk (HIGH)", quotesFor(report, "US-FDA-ALG-001").includes("whey protein concentrate"));
+// US law accepts "almonds" in the ingredient list as the declaration, so it only gets the LOW "add a Contains: line" advice.
+expect("almonds flagged as missing a Contains line (LOW advice)", quotesFor(report, "US-FDA-ALG-002").includes("almonds"));
 expect("report shows rule pack v0.1", report?.packVersion === "0.1");
 expect("report has a no-issues entry", report?.ruleStatuses.some((r) => r.status === "no_issues"));
 expect('never says "compliant"', !JSON.stringify(runs.map((r) => r.body)).toLowerCase().includes("compliant"));
+
+console.log("\nConsistency: Input B gets the same verdict every time (5 runs)");
+const INPUT_B =
+  "Gluten-free granola bites. Supports healthy blood sugar. Ingredients: rolled oats, peanut butter, honey, natural flavor (contains milk), sea salt";
+for (let i = 1; i <= 5; i++) {
+  const run = await postCheck(INPUT_B);
+  const flags = run.body.report?.flags ?? [];
+  const summary = flags.map((f) => `${f.ruleId} "${f.quotedText}"`).join(", ") || run.body.message;
+  expect(
+    `run ${i}: no disease claim, peanut butter only as LOW advice, milk declared`,
+    run.body.status === "ok" &&
+      !flags.some((f) => f.ruleId === "US-FDA-DC-001") &&
+      flags.length === 1 &&
+      flags[0].ruleId === "US-FDA-ALG-002" &&
+      flags[0].quotedText === "peanut butter",
+    summary,
+  );
+  expect(`run ${i}: under 10 seconds`, run.seconds < 10, `${run.seconds.toFixed(1)} s`);
+}
 
 console.log("\nTest 3: bad input asks for label text, no flags, no crash");
 for (const [name, text] of [
   ["empty text", ""],
   ["pasta recipe", PASTA_RECIPE],
+  ["pasta instructions", "Boil 200g pasta for 10 minutes, drain, and toss with olive oil and garlic."],
   ["random words", "banana keyboard purple sunset violin"],
 ]) {
   const r = await postCheck(text);

@@ -8,16 +8,23 @@ const BAR =
   "High protein bar that helps manage diabetes. Ingredients: oats, whey protein concentrate, dates, almonds";
 
 describe("checkAllergens", () => {
-  it("flags whey as milk and almonds as tree nuts on the test label (US)", () => {
+  it("flags whey as undeclared milk, and almonds only as a missing Contains line (US)", () => {
     const result = checkAllergens(BAR, us);
     expect(result.checked).toBe(true);
-    expect(result.flags.map((f) => [f.ruleId, f.quotedText])).toEqual([
-      ["US-FDA-ALG-001", "whey protein concentrate"],
-      ["US-FDA-ALG-001", "almonds"],
+    expect(result.flags.map((f) => [f.ruleId, f.severity, f.quotedText])).toEqual([
+      ["US-FDA-ALG-001", "high", "whey protein concentrate"],
+      ["US-FDA-ALG-002", "low", "almonds"],
     ]);
     expect(result.flags[0].explanation).toContain("milk");
-    expect(result.flags[1].explanation).toContain("tree nuts");
+    expect(result.flags[1].explanation).toContain("counts as declaring it");
     expect(result.flags[0].suggestedRewrite).toBe("Contains: Milk, Tree nuts (almonds).");
+  });
+
+  it("treats peanut butter and '(contains milk)' as declared under US law (Input B)", () => {
+    const inputB =
+      "Gluten-free granola bites. Supports healthy blood sugar. Ingredients: rolled oats, peanut butter, honey, natural flavor (contains milk), sea salt";
+    const flags = checkAllergens(inputB, us).flags;
+    expect(flags.map((f) => [f.ruleId, f.severity, f.quotedText])).toEqual([["US-FDA-ALG-002", "low", "peanut butter"]]);
   });
 
   it("also flags oats as gluten under FSSAI, but not under US", () => {

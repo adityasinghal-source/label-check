@@ -23,6 +23,8 @@ export type RulePack = {
   label: string;
   version: string;
   allergenRuleId: string;
+  // Optional low-severity rule for allergens already named by the ingredient itself.
+  allergenAdviceRuleId?: string;
   rules: Rule[];
   allergens: Allergen[];
 };

@@ -3,6 +3,7 @@
   "label": "US (FDA)",
   "version": "0.1",
   "allergenRuleId": "US-FDA-ALG-001",
+  "allergenAdviceRuleId": "US-FDA-ALG-002",
   "rules": [
     {
       "id": "US-FDA-DC-001",
@@ -10,7 +11,7 @@
       "severity": "high",
       "checkedBy": "ai",
       "citation": "FD&C Act §201(g)(1); 21 CFR 101.93(g)",
-      "aiGuidance": "Wording that says or implies the product treats, cures, mitigates, manages or prevents a disease or health condition (for example diabetes, high blood pressure, heart disease, cancer, arthritis, depression). Foods and supplements that make these claims are regulated as drugs."
+      "aiGuidance": "Flag wording that says or implies the product treats, cures, mitigates, manages or prevents a specific disease or medical condition (or a symptom of one), or that it is meant for people who have one. Foods and supplements that make these claims are regulated as drugs. Flag, for example: \"helps manage diabetes\", \"lowers blood pressure\", \"prevents heart disease\", \"great for diabetics\", \"fights cancer\", \"relieves arthritis pain\". Do NOT flag wording about supporting or maintaining normal, healthy body function that names no disease, condition or symptom. Those are structure/function claims, which this rule does not cover: \"supports healthy blood sugar\", \"supports immunity\", \"builds strong bones\", \"supports heart health\", \"high protein\". Tie-break: if the wording does not name a disease, condition or symptom, and does not say the product is for people who have one, do not flag it."
     },
     {
       "id": "US-FDA-ALG-001",
@@ -18,6 +19,13 @@
       "severity": "high",
       "checkedBy": "code",
       "citation": "FD&C Act §403(w) (FALCPA, FASTER Act)"
+    },
+    {
+      "id": "US-FDA-ALG-002",
+      "name": "No \"Contains:\" line (best practice)",
+      "severity": "low",
+      "checkedBy": "code",
+      "citation": "FD&C Act §403(w)(1): an ingredient name that identifies the allergen satisfies the law; a \"Contains:\" statement is the alternative way to declare it"
     }
   ],
   "allergens": [

@@ -26,6 +26,8 @@ export function buildReport(
       if (!allergens.checked) ruleStatuses.push({ ...base, status: "not_checked", note: "No ingredient list found" });
       else if (allergens.clear.length > 0)
         ruleStatuses.push({ ...base, status: "no_issues", note: `no issues for ${allergens.clear.join(", ").toLowerCase()}` });
+    } else if (rule.id === pack.allergenAdviceRuleId && !allergens.checked) {
+      ruleStatuses.push({ ...base, status: "not_checked", note: "No ingredient list found" });
     } else if (!flags.some((f) => f.ruleId === rule.id)) {
       ruleStatuses.push({ ...base, status: "no_issues" });
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Report from "@/components/Report";
 import { MESSAGES } from "@/lib/messages";
 import { RULE_PACKS } from "@/lib/rulepacks";
@@ -26,6 +26,12 @@ export default function Home() {
   const [busy, setBusy] = useState<"check" | "image" | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [report, setReport] = useState<ReportData | null>(null);
+
+  // Wake both API routes while the user is still typing, so the first check is fast.
+  useEffect(() => {
+    fetch("/api/check").catch(() => {});
+    fetch("/api/read-image").catch(() => {});
+  }, []);
 
   function reset() {
     setNotice(null);

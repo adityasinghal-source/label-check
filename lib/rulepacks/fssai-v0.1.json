@@ -10,7 +10,7 @@
       "severity": "high",
       "checkedBy": "ai",
       "citation": "Food Safety and Standards Act, 2006; FSS (Advertising and Claims) Regulations, 2018",
-      "aiGuidance": "Wording that says or implies the food prevents, treats, cures, manages or alleviates a disease or medical condition (for example diabetes, high blood pressure, heart disease, cancer, arthritis). Food labels in India may not make such claims."
+      "aiGuidance": "Flag wording that says or implies the food prevents, treats, cures, manages or alleviates a specific disease or medical condition (or a symptom of one), or that it is meant for people who have one. Food labels in India may not make such claims. Flag, for example: \"helps manage diabetes\", \"controls blood pressure\", \"prevents heart disease\", \"good for diabetics\", \"cures joint pain\". Do NOT flag wording about supporting normal, healthy body function that names no disease, condition or symptom: \"supports healthy blood sugar\", \"supports immunity\", \"builds strong bones\", \"high protein\". Tie-break: if the wording does not name a disease, condition or symptom, and does not say the food is for people who have one, do not flag it."
     },
     {
       "id": "FSSAI-ALG-001",
