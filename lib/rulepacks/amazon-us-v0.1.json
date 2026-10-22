@@ -1,0 +1,22 @@
+{
+  "id": "amazon-us",
+  "label": "US · Amazon",
+  "version": "0.1",
+  "extends": "us-fda",
+  "rules": [
+    {
+      "id": "AMZ-US-001",
+      "name": "Blood sugar or diabetes wording",
+      "severity": "medium",
+      "checkedBy": "code",
+      "citation": "Amazon Seller Central policy on diabetes-related products (products marketed as diabetes, glucose or sugar treatments need FDA approval), as quoted in Seller Central forums; third-party compliance guides report automated review treats \"blood sugar\" as a high-sensitivity term. Verify in Seller Central.",
+      "match": {
+        "when": "present",
+        "words": ["blood sugar", "blood glucose", "glucose", "diabetes", "diabetic", "insulin", "glycemic", "glycaemic", "A1C"]
+      },
+      "explanation": "Amazon's automated review flags blood-sugar, glucose and diabetes wording on food and supplement listings, even when the FDA would accept it as a structure/function claim. Listings can be blocked with only a vague reason.",
+      "advice": "For Amazon, remove this sentence from the pack and listing, or keep qualified wording (\"…blood sugar levels already within a normal range\") and have documentation ready for an appeal.",
+      "fix": { "type": "remove_sentence" }
+    }
+  ]
+}

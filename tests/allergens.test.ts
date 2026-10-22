@@ -17,7 +17,8 @@ describe("checkAllergens", () => {
     ]);
     expect(result.flags[0].explanation).toContain("milk");
     expect(result.flags[1].explanation).toContain("counts as declaring it");
-    expect(result.flags[0].suggestedRewrite).toBe("Contains: Milk, Tree nuts (almonds).");
+    expect(result.statement).toBe("Contains: Milk, Tree Nuts (Almonds).");
+    expect(result.flags[0].suggestedRewrite).toBe(result.statement);
   });
 
   it("treats peanut butter and '(contains milk)' as declared under US law (Input B)", () => {
@@ -46,6 +47,10 @@ describe("checkAllergens", () => {
   });
 
   it("says not checked when there is no ingredient list", () => {
-    expect(checkAllergens("Crunchy high protein bar", us)).toEqual({ checked: false, flags: [], clear: [] });
+    expect(checkAllergens("Crunchy high protein bar", us)).toEqual({ checked: false, flags: [], clear: [], statement: null });
+  });
+
+  it("writes the FSSAI allergen line with the gluten cereal named", () => {
+    expect(checkAllergens(BAR, fssai).statement).toBe("Contains: Gluten (Oats), Milk, Tree Nuts (Almonds).");
   });
 });

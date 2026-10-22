@@ -2,21 +2,34 @@ import type { AllergenResult } from "./allergens";
 import type { Flag, Report, RulePack, RuleStatus } from "./types";
 
 // This tool can only say "no issues found against this rule pack", never that a label is compliant.
-function noCompliant(s: string) {
+export function noCompliant(s: string) {
   return s.replace(/\bnon-?compliant\b/gi, "risky").replace(/\bcompliant\b/gi, "lower-risk");
 }
 
-export function buildReport(
-  pack: RulePack,
-  aiFlags: Flag[],
-  allergens: AllergenResult,
-  droppedAiFlags: number,
-): Report {
-  const flags = [...aiFlags, ...allergens.flags].map((f) => ({
-    ...f,
-    explanation: noCompliant(f.explanation),
-    suggestedRewrite: noCompliant(f.suggestedRewrite),
-  }));
+const SEVERITY_ORDER = { high: 0, medium: 1, low: 2 };
+
+export function buildReport({
+  pack,
+  labelText,
+  aiFlags,
+  allergens,
+  codeFlags = [],
+  droppedAiFlags,
+}: {
+  pack: RulePack;
+  labelText: string;
+  aiFlags: Flag[];
+  allergens: AllergenResult;
+  codeFlags?: Flag[];
+  droppedAiFlags: number;
+}): Report {
+  const flags = [...aiFlags, ...allergens.flags, ...codeFlags]
+    .map((f) => ({
+      ...f,
+      explanation: noCompliant(f.explanation),
+      suggestedRewrite: noCompliant(f.suggestedRewrite),
+    }))
+    .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 
   const ruleStatuses: RuleStatus[] = [];
   for (const rule of pack.rules) {
@@ -33,5 +46,15 @@ export function buildReport(
     }
   }
 
-  return { packLabel: pack.label, packVersion: pack.version, flags, ruleStatuses, droppedAiFlags };
+  return {
+    packId: pack.id,
+    packLabel: pack.label,
+    packVersion: pack.version,
+    basedOn: pack.basedOn,
+    labelText,
+    flags,
+    ruleStatuses,
+    allergenStatement: allergens.statement,
+    droppedAiFlags,
+  };
 }

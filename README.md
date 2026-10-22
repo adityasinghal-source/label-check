@@ -4,6 +4,16 @@ Check a draft food or supplement label for risky claims and undeclared allergens
 
 > A screening aid, not legal advice. The tool can only say "no issues found against rule pack v0.1". It never says a label is "compliant".
 
+## What it does
+
+| Tab | Feature |
+|---|---|
+| **Check a label** | A **readiness verdict** first ("Not ready to print: 2 high-risk, 1 low"), the **allergen line** generated from your ingredients ("Contains: Milk, Tree Nuts (Almonds)."), your label with **risky phrases highlighted** (click one to jump to its rule and fix), and **Fix all**, which applies every fix and shows your draft next to the corrected one, ready to copy or re-check |
+| **Compare markets** | One label against two rule packs side by side (e.g. US vs India), with **what has to change for each market** on top |
+| **Explain a rejection** | Paste a vague rejection from Amazon, a retailer or a regulator (plus your label, optionally). Get the **likely cause**, the matching rule, the likely trigger on your label, **how to fix it**, and a note to send with your resubmission |
+
+Rule packs cover **countries** (US FDA, India FSSAI) and **sales channels** (Amazon, Blinkit). A channel pack runs its country's rules plus its own, so the same line, *"Supports healthy blood sugar"*, passes the FDA pack but is flagged on Amazon.
+
 ---
 
 ## Job to be done
@@ -71,7 +81,17 @@ Rule pack                                  "Compliant" filter               to a
 | India (FSSAI) | `FSSAI-DC-001` | Claim to prevent, treat or cure a disease (FSS Act 2006; Advertising & Claims Regs 2018) | AI |
 | India (FSSAI) | `FSSAI-ALG-001` | Allergen not declared, including gluten cereals like **oats** and sulphites (Labelling & Display Regs 2020) | Code |
 
-Adding a market means adding one JSON file in `lib/rulepacks/`.
+### Channel packs (v0.1, built on a country pack)
+
+| Pack | Rule ID | Rule | Checked by |
+|---|---|---|---|
+| US · Amazon (+ US FDA) | `AMZ-US-001` | MEDIUM: blood sugar, glucose or diabetes wording, which Amazon's automated review flags even when the FDA allows it | Code |
+| India · Blinkit (+ FSSAI) | `BLK-IN-001` | HIGH: no FSSAI licence number found (Blinkit holds listings without it on the primary pack) | Code |
+| India · Blinkit (+ FSSAI) | `BLK-IN-002` | MEDIUM: "natural" on a multi-ingredient food (only "made from natural ingredients" is allowed) | Code |
+
+**Sources for channel rules are second-hand.** The Amazon rule comes from a Seller Central forum post quoting Amazon's policy on diabetes-related products, plus third-party compliance guides. The Blinkit rules come from third-party seller onboarding guides. I found no official Blinkit claims policy. Every citation says "verify", and these should be checked in Seller Central and on Blinkit Seller Hub.
+
+Adding a market or channel means adding one JSON file in `lib/rulepacks/`.
 
 ---
 
@@ -82,6 +102,9 @@ Adding a market means adding one JSON file in `lib/rulepacks/`.
 | **Read text from a photo** | Turning pixels into text needs vision |
 | **Decide "is this a label?"** | A recipe and a label both have "Ingredients:"; keywords can't tell them apart |
 | **Find disease claims and write rewrites** | The same claim can be worded endlessly ("helps manage diabetes", "great for diabetics"), and a good rewrite needs language skill |
+| **Explain a vague rejection** | Rejection messages are free text with no fixed format. Matching one to a likely cause and a fix needs judgement. The rule ID it cites and the quote it points to are checked by code, like flags |
+
+Channel rules are plain code on purpose. Amazon's own flagging is keyword-based, so a word list predicts it better than AI judgement would. Highlighting, Fix all, the allergen line, the readiness verdict and the market comparison are all plain code too.
 
 **Everything else is plain code**, because it must be exact and give the same answer every time: the input checks, the allergen check (fixed published lists with exceptions like "peanut butter" ≠ milk), rule IDs, severities and citations, checking the AI's flags, the report wording, and the "compliant" filter.
 
@@ -118,12 +141,19 @@ Adding a market means adding one JSON file in `lib/rulepacks/`.
 | No ingredient list in the text | Allergen rule shown as **"Not checked: no ingredient list found"**, not "no issues" |
 | AI answer slow (no reply in 6 s) | A backup request starts automatically, and whichever answers first wins |
 | AI service down, both attempts fail, or a malformed answer | "The checker couldn't run. Please try again." No partial report |
+| A fix can't be applied automatically (e.g. "natural" on Blinkit) | Fix all lists it under "Still needs you" instead of guessing |
+| Fix all on a channel pack | AI rewrites are told to avoid the words that channel flags. Removal is used only when there's no rewrite |
+| Rejection explainer gets something that isn't a notice | "This doesn't look like a rejection or compliance notice. Paste the message you received." |
+| Rejection explainer cites a rule that isn't in the pack, or a quote not in the label | Dropped by code; the card says no rule in this pack matches |
 | Borderline claims ("supports healthy blood sugar") | Each rule pack spells out what to flag and what not to flag, with a tie-break, so the same text gets the same verdict |
 | First check after starting the app | The page pings both API routes on load, so they're ready before you click |
 | Missing API key | "The checker isn't set up yet. Add your OpenRouter API key to .env.local…" |
 | Browser blocks the clipboard | Copy button says "Blocked: select the text" |
 
-**Known limitations:** v0.1 doesn't check structure/function claims ("supports healthy blood sugar"), nutrient content claims ("high protein") or "gluten-free" claims. The FSSAI pack still treats a missing "Contains:" line as undeclared, because Indian allergen rules haven't been checked against the official text.
+**Known limitations:**
+- The FDA pack doesn't check structure/function claims ("supports healthy blood sugar"), nutrient content claims ("high protein") or "gluten-free" claims. The Amazon pack catches blood sugar wording only.
+- The FSSAI pack still treats a missing "Contains:" line as undeclared, because Indian allergen rules haven't been checked against the official text. The FSSAI allergen line uses the same "Contains:" format as the US for the same reason.
+- Channel rules come from second-hand sources (see above).
 
 ---
 
@@ -178,5 +208,9 @@ Runs the 3 acceptance tests against the running app (`npm run dev` first). It us
 | `lib/ai.ts` | The only file that talks to the AI |
 | `lib/rulepacks/` | Rule packs (US FDA, FSSAI) as JSON |
 | `lib/allergens.ts`, `lib/validateFlags.ts`, `lib/buildReport.ts`, `lib/inputGuard.ts` | Plain-code logic |
+| `lib/codeRules.ts` | Channel rules (Amazon, Blinkit) |
+| `lib/summary.ts`, `lib/highlight.ts`, `lib/fixAll.ts`, `lib/compare.ts` | Readiness verdict, highlighting, Fix all, market comparison |
+| `app/api/explain/route.ts`, `components/ExplanationCard.tsx` | Rejection explainer |
+| `components/CompareView.tsx`, `components/FixAllPanel.tsx`, `components/HighlightedLabel.tsx` | Compare, before/after, highlighted label |
 | `tests/` | Unit tests |
 | `scripts/acceptance.mjs` | The 3 acceptance tests |

@@ -1,6 +1,7 @@
 import { checkClaims, MissingKeyError } from "@/lib/ai";
 import { checkAllergens } from "@/lib/allergens";
 import { buildReport } from "@/lib/buildReport";
+import { checkCodeRules } from "@/lib/codeRules";
 import { checkInput } from "@/lib/inputGuard";
 import { MESSAGES } from "@/lib/messages";
 import { getRulePack } from "@/lib/rulepacks";
@@ -44,6 +45,13 @@ export async function POST(request: Request) {
   const { flags, dropped } = validateFlags(ai.flags, input.text, pack);
   if (dropped > 0) console.warn(`Dropped ${dropped} AI flag(s) without a valid rule ID or real quote`);
 
-  const report = buildReport(pack, flags, checkAllergens(input.text, pack), dropped);
+  const report = buildReport({
+    pack,
+    labelText: input.text,
+    aiFlags: flags.map((f) => ({ ...f, fix: { type: "rewrite" as const } })),
+    allergens: checkAllergens(input.text, pack),
+    codeFlags: checkCodeRules(input.text, pack),
+    droppedAiFlags: dropped,
+  });
   return reply({ status: "ok", report });
 }

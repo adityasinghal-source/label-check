@@ -1,14 +1,17 @@
 import type { Allergen, Flag, RulePack } from "./types";
 
 // clear: allergens with nothing undeclared, shown under "No issues found".
-export type AllergenResult = { checked: boolean; flags: Flag[]; clear: string[] };
+// statement: the correct allergen line for this label, e.g. "Contains: Milk, Tree Nuts (Almonds)."
+export type AllergenResult = { checked: boolean; flags: Flag[]; clear: string[]; statement: string | null };
 
-function escapeRegex(s: string) {
+export function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+const titleCase = (s: string) => s.replace(/\b\p{L}/gu, (c) => c.toUpperCase());
+
 // Whole words only, allowing simple plurals: "almond" matches "almonds" but not "almondine".
-function wordPattern(words: string[]) {
+export function wordPattern(words: string[]) {
   return new RegExp(`\\b(?:${words.map(escapeRegex).join("|")})(?:s|es)?\\b`, "i");
 }
 
@@ -40,13 +43,19 @@ function bracketText(text: string) {
   return (text.match(/[([][^)\]]*[)\]]/g) ?? []).join(" ");
 }
 
-export function checkAllergens(labelText: string, pack: RulePack): AllergenResult {
-  const start = /\bingredients?\s*:/i.exec(labelText);
-  if (!start) return { checked: false, flags: [], clear: [] };
+// [start, end) of the ingredient list after "Ingredients:", or null if there isn't one.
+export function ingredientsRange(labelText: string): [number, number] | null {
+  const heading = /\bingredients?\s*:/i.exec(labelText);
+  if (!heading) return null;
+  const start = heading.index + heading[0].length;
+  const end = labelText.slice(start).search(/\b(?:contains|may contain|allergens?)\s*:|\n\s*\n/i);
+  return [start, end >= 0 ? start + end : labelText.length];
+}
 
-  let ingredients = labelText.slice(start.index + start[0].length);
-  const end = ingredients.search(/\b(?:contains|may contain|allergens?)\s*:|\n\s*\n/i);
-  if (end >= 0) ingredients = ingredients.slice(0, end);
+export function checkAllergens(labelText: string, pack: RulePack): AllergenResult {
+  const range = ingredientsRange(labelText);
+  if (!range) return { checked: false, flags: [], clear: [], statement: null };
+  const ingredients = labelText.slice(...range);
 
   const containsLine = /\bcontains\s*:([^\n]*)/i.exec(labelText)?.[1] ?? "";
   const items = splitIngredients(ingredients);
@@ -77,8 +86,11 @@ export function checkAllergens(labelText: string, pack: RulePack): AllergenResul
     }
   }
 
-  const display = (h: Hit) => (h.allergen.nameSpecific ? `${h.allergen.name} (${h.matched})` : h.allergen.name);
-  const suggestedContains = `Contains: ${hits.map(display).join(", ")}.`;
+  // FDA style: the allergen's name, plus the specific nut, fish or cereal in brackets.
+  const display = (h: Hit) =>
+    titleCase(h.allergen.nameSpecific ? `${h.allergen.name} (${h.matched})` : h.allergen.name);
+  const statement = hits.length > 0 ? `Contains: ${hits.map(display).join(", ")}.` : null;
+  const suggestedContains = statement ?? "";
 
   // In packs with an advice rule (US), an ingredient name that names the allergen ("almonds") already
   // counts as the legal declaration, so it only gets a low-severity "add a Contains: line" note.
@@ -99,6 +111,7 @@ export function checkAllergens(labelText: string, pack: RulePack): AllergenResul
         ? `"${h.item}" is a source of ${allergenName(h)}. The ingredient name shows it, but there's no "Contains:" line declaring it.`
         : `"${h.item}" is a source of ${allergenName(h)}, but the label never says so. Declare it in brackets after the ingredient or in a "Contains:" line.`,
       suggestedRewrite: suggestedContains,
+      fix: { type: "allergen_statement" as const },
       foundBy: "code" as const,
     })),
     ...adviceOnly.map((h) => ({
@@ -109,9 +122,10 @@ export function checkAllergens(labelText: string, pack: RulePack): AllergenResul
       quotedText: h.item,
       explanation: `"${h.item}" names ${allergenName(h)}, which counts as declaring it. A "Contains:" line is optional, but it's common practice and easier for shoppers to spot.`,
       suggestedRewrite: suggestedContains,
+      fix: { type: "allergen_statement" as const },
       foundBy: "code" as const,
     })),
   ];
 
-  return { checked: true, flags, clear };
+  return { checked: true, flags, clear, statement };
 }

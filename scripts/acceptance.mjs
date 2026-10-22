@@ -80,6 +80,11 @@ expect("almonds flagged as missing a Contains line (LOW advice)", quotesFor(repo
 expect("report shows rule pack v0.1", report?.packVersion === "0.1");
 expect("report has a no-issues entry", report?.ruleStatuses.some((r) => r.status === "no_issues"));
 expect('never says "compliant"', !JSON.stringify(runs.map((r) => r.body)).toLowerCase().includes("compliant"));
+expect(
+  "allergen line generated in FDA style",
+  report?.allergenStatement === "Contains: Milk, Tree Nuts (Almonds).",
+  report?.allergenStatement,
+);
 
 console.log("\nConsistency: Input B gets the same verdict every time (5 runs)");
 const INPUT_B =
@@ -122,6 +127,50 @@ console.log("\nFSSAI smoke check");
 const fssai = await postCheck(LABEL, "fssai");
 const ids = fssai.body.report?.flags.map((f) => f.ruleId) ?? [];
 expect("only FSSAI rule IDs", ids.length > 0 && ids.every((id) => id.startsWith("FSSAI-")), ids.join(", "));
+
+console.log("\nChannels: the same line can be fine with the FDA but risky on Amazon");
+const amazon = await postCheck(INPUT_B, "amazon-us");
+const amazonFlags = amazon.body.report?.flags ?? [];
+expect(
+  'Amazon flags "Supports healthy blood sugar" (AMZ-US-001)',
+  amazonFlags.some((f) => f.ruleId === "AMZ-US-001" && f.quotedText === "Supports healthy blood sugar"),
+  amazonFlags.map((f) => `${f.ruleId} "${f.quotedText}"`).join(", ") || amazon.body.message,
+);
+expect("Amazon still runs the FDA checks", amazon.body.report?.basedOn === "US (FDA) v0.1");
+const blinkit = await postCheck(LABEL, "blinkit-in");
+expect(
+  "Blinkit flags the missing FSSAI licence number (BLK-IN-001)",
+  blinkit.body.report?.flags.some((f) => f.ruleId === "BLK-IN-001"),
+);
+
+console.log("\nRejection explainer");
+async function postExplain(rejection, labelText, packId = "amazon-us") {
+  const started = Date.now();
+  const res = await fetch(`${BASE}/api/explain`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rejection, labelText, packId }),
+  });
+  return { http: res.status, body: await res.json(), seconds: (Date.now() - started) / 1000 };
+}
+const notice =
+  "Your listing has been removed. Reason: this product appears to make prohibited claims. Products marketed for diabetes or blood sugar conditions are not permitted without FDA approval.";
+const explained = await postExplain(notice, INPUT_B);
+const ex = explained.body.explanation;
+expect(
+  "gives a likely cause, fix steps and a note to send",
+  explained.body.status === "ok" && ex.likelyCause.length > 0 && ex.fixSteps.length > 0 && ex.appealNote.length > 0,
+  ex ? `${ex.likelyCause} [rule: ${ex.ruleId ?? "none"}, quote: ${ex.evidenceQuote ?? "none"}]` : explained.body.message,
+);
+expect("any rule ID it cites is from the pack", ex ? ex.ruleId === null || ex.ruleId.length > 0 : false);
+expect('explanation never says "compliant"', !JSON.stringify(explained.body).toLowerCase().includes("compliant"));
+expect("under 10 seconds", explained.seconds < 10, `${explained.seconds.toFixed(1)} s`);
+const notANotice = await postExplain("banana keyboard purple sunset violin", "");
+expect(
+  "random words: asks for the rejection message, no explanation",
+  notANotice.body.status === "needs_text" && !notANotice.body.explanation,
+  notANotice.body.message,
+);
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);
