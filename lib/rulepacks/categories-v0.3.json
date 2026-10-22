@@ -1,0 +1,371 @@
+{
+  "version": "0.3",
+  "categories": [
+    {
+      "id": "general",
+      "label": "General packaged food / snacks",
+      "rules": {}
+    },
+    {
+      "id": "supplements",
+      "label": "Health supplements & nutraceuticals",
+      "rules": {
+        "india": [
+          {
+            "id": "IN-FSSAI-HS-001",
+            "name": "\"NOT FOR MEDICINAL USE\" missing",
+            "severity": "high",
+            "checkedBy": "code",
+            "citation": "FSS (Health Supplements, Nutraceuticals, Food for Special Dietary Use…) Regulations, 2016: \"NOT FOR MEDICINAL USE\" on the label",
+            "source": {
+              "label": "FSSAI regulations",
+              "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php"
+            },
+            "verified": true,
+            "match": {
+              "when": "absent",
+              "regex": "not\\s+for\\s+medicinal\\s+use"
+            },
+            "explanation": "Health supplements and nutraceuticals sold in India must carry the words \"NOT FOR MEDICINAL USE\" prominently.",
+            "advice": "Add \"NOT FOR MEDICINAL USE\" prominently on the label.",
+            "fix": {
+              "type": "append_line",
+              "line": "NOT FOR MEDICINAL USE"
+            }
+          },
+          {
+            "id": "IN-FSSAI-HS-002",
+            "name": "Recommended daily usage or warning missing",
+            "severity": "medium",
+            "checkedBy": "code",
+            "citation": "FSS (Health Supplements, Nutraceuticals…) Regulations, 2016: recommended usage and a warning not to exceed it",
+            "source": {
+              "label": "FSSAI regulations",
+              "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php"
+            },
+            "verified": true,
+            "match": {
+              "when": "absent",
+              "regex": "recommended\\s+(?:daily\\s+)?(?:usage|use|dose|intake)|do\\s+not\\s+exceed"
+            },
+            "explanation": "No recommended daily usage, or warning not to exceed it, was found.",
+            "advice": "Add the recommended daily usage and \"Do not exceed the recommended daily usage\".",
+            "fix": {
+              "type": "append_line",
+              "line": "Recommended usage: [amount and frequency]. Do not exceed the recommended daily usage."
+            }
+          }
+        ],
+        "us": [
+          {
+            "id": "US-FDA-DS-001",
+            "name": "Dietary supplement disclaimer missing",
+            "severity": "high",
+            "checkedBy": "code",
+            "citation": "21 CFR 101.93(c): structure/function claims on dietary supplements need the FDA disclaimer (DSHEA)",
+            "source": {
+              "label": "21 CFR 101.93 (eCFR)",
+              "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-B/part-101/subpart-F/section-101.93"
+            },
+            "verified": true,
+            "match": {
+              "when": "absent",
+              "onlyIf": "\\b(?:supports?|promotes?|maintains?|boosts?|enhances?|helps)\\b",
+              "regex": "not\\s+been\\s+evaluated\\s+by\\s+the\\s+food\\s+and\\s+drug\\s+administration"
+            },
+            "explanation": "The label makes a structure/function claim (\"supports…\", \"promotes…\") but doesn't carry the required FDA disclaimer.",
+            "advice": "Add the disclaimer, linked by an asterisk to each claim.",
+            "fix": {
+              "type": "append_line",
+              "line": "*These statements have not been evaluated by the Food and Drug Administration. This product is not intended to diagnose, treat, cure, or prevent any disease."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "protein",
+      "label": "Protein & sports nutrition",
+      "rules": {
+        "india": [
+          {
+            "id": "IN-FSSAI-HS-001",
+            "name": "\"NOT FOR MEDICINAL USE\" missing",
+            "severity": "high",
+            "checkedBy": "code",
+            "citation": "FSS (Health Supplements, Nutraceuticals, Food for Special Dietary Use…) Regulations, 2016 (sports nutrition is covered): \"NOT FOR MEDICINAL USE\"",
+            "source": {
+              "label": "FSSAI regulations",
+              "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php"
+            },
+            "verified": true,
+            "match": {
+              "when": "absent",
+              "regex": "not\\s+for\\s+medicinal\\s+use"
+            },
+            "explanation": "Protein and sports nutrition products regulated as health supplements in India must carry \"NOT FOR MEDICINAL USE\".",
+            "advice": "Add \"NOT FOR MEDICINAL USE\" prominently on the label.",
+            "fix": {
+              "type": "append_line",
+              "line": "NOT FOR MEDICINAL USE"
+            }
+          },
+          {
+            "id": "IN-FSSAI-HS-002",
+            "name": "Recommended daily usage or warning missing",
+            "severity": "medium",
+            "checkedBy": "code",
+            "citation": "FSS (Health Supplements, Nutraceuticals…) Regulations, 2016: recommended usage and a warning not to exceed it",
+            "source": {
+              "label": "FSSAI regulations",
+              "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php"
+            },
+            "verified": true,
+            "match": {
+              "when": "absent",
+              "regex": "recommended\\s+(?:daily\\s+)?(?:usage|use|dose|intake)|do\\s+not\\s+exceed"
+            },
+            "explanation": "No recommended daily usage, or warning not to exceed it, was found.",
+            "advice": "Add the recommended daily usage and \"Do not exceed the recommended daily usage\".",
+            "fix": {
+              "type": "append_line",
+              "line": "Recommended usage: [amount and frequency]. Do not exceed the recommended daily usage."
+            }
+          }
+        ],
+        "us": []
+      }
+    },
+    {
+      "id": "beverages",
+      "label": "Beverages & RTD",
+      "rules": {
+        "india": [
+          {
+            "id": "IN-FSSAI-BEV-001",
+            "name": "Caffeine warning missing",
+            "severity": "high",
+            "checkedBy": "code",
+            "citation": "FSS (Food Products Standards and Food Additives) Regulations: caffeinated beverages must say they are not recommended for children, pregnant or lactating women, and persons sensitive to caffeine",
+            "source": {
+              "label": "FSSAI regulations",
+              "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php"
+            },
+            "verified": true,
+            "match": {
+              "when": "absent",
+              "onlyIf": "\\bcaffein",
+              "regex": "not\\s+recommended\\s+for\\s+children"
+            },
+            "explanation": "The drink contains caffeine but doesn't carry the caffeine warning.",
+            "advice": "Add the caffeine warning.",
+            "fix": {
+              "type": "append_line",
+              "line": "Contains caffeine. Not recommended for children, pregnant or lactating women, persons sensitive to caffeine."
+            }
+          }
+        ],
+        "us": [
+          {
+            "id": "US-FDA-BEV-001",
+            "name": "Juice percentage not declared",
+            "severity": "high",
+            "checkedBy": "code",
+            "citation": "21 CFR 101.30: a beverage that says it contains juice must declare the percentage of juice",
+            "source": {
+              "label": "21 CFR 101.30 (eCFR)",
+              "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-B/part-101/subpart-B/section-101.30"
+            },
+            "verified": true,
+            "match": {
+              "when": "absent",
+              "onlyIf": "\\bjuice\\b",
+              "regex": "\\d+(?:\\.\\d+)?\\s*%\\s*(?:fruit\\s+|vegetable\\s+)?juice"
+            },
+            "explanation": "The label mentions juice but doesn't state the percentage of juice, e.g. \"Contains 10% juice\".",
+            "advice": "Add \"Contains [n]% juice\" near the top of the information panel.",
+            "fix": {
+              "type": "append_line",
+              "line": "Contains [percentage]% juice"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "imported",
+      "label": "Imported food products",
+      "rules": {
+        "india": [
+          {
+            "id": "IN-LM-IMP-001",
+            "name": "Importer name and address missing",
+            "severity": "high",
+            "checkedBy": "code",
+            "citation": "Legal Metrology (Packaged Commodities) Rules, 2011, Rule 6 and FSS (Labelling and Display) Regulations, 2020: importer's name, address and FSSAI licence on imported food",
+            "source": {
+              "label": "Legal Metrology (Packaged Commodities) Rules, 2011",
+              "url": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf"
+            },
+            "verified": true,
+            "match": {
+              "when": "absent",
+              "regex": "\\bimport(?:ed\\s+(?:and\\s+\\w+\\s+)?by|er)\\b"
+            },
+            "explanation": "Imported food must name the importer and give their address; the FSSAI licence number must be the importer's.",
+            "advice": "Add \"Imported by: [importer name and address]\" with the importer's FSSAI licence number.",
+            "fix": {
+              "type": "append_line",
+              "line": "Imported by: [importer name and address]"
+            }
+          }
+        ],
+        "us": [
+          {
+            "id": "US-CBP-ORIGIN-001",
+            "name": "Country of origin missing",
+            "severity": "high",
+            "checkedBy": "code",
+            "citation": "19 CFR 134.11: imported articles must be marked with the English name of the country of origin",
+            "source": {
+              "label": "19 CFR 134.11 (eCFR)",
+              "url": "https://www.ecfr.gov/current/title-19/chapter-I/part-134/subpart-B/section-134.11"
+            },
+            "verified": true,
+            "match": {
+              "when": "absent",
+              "regex": "\\bproduct\\s+of\\s+\\w|\\bmade\\s+in\\s+\\w|\\bcountry\\s+of\\s+origin\\b"
+            },
+            "explanation": "Imported food must say which country it comes from, e.g. \"Product of Italy\".",
+            "advice": "Add \"Product of [country]\".",
+            "fix": {
+              "type": "append_line",
+              "line": "Product of [country]"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "packTypes": [
+    {
+      "id": "single",
+      "label": "Single unit pack",
+      "rules": {}
+    },
+    {
+      "id": "multi",
+      "label": "Multi-pack / combo pack",
+      "rules": {
+        "india": [
+          {
+            "id": "IN-LM-MULTI-001",
+            "name": "Multi-pack contents not declared",
+            "severity": "high",
+            "checkedBy": "code",
+            "citation": "Legal Metrology (Packaged Commodities) Rules, 2011: multi-piece and combination packages declare the number of pieces, the net quantity of each and the total",
+            "source": {
+              "label": "Legal Metrology (Packaged Commodities) Rules, 2011",
+              "url": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf"
+            },
+            "verified": false,
+            "match": {
+              "when": "absent",
+              "regex": "\\b\\d+\\s*(?:x|×|\\*)\\s*\\d+(?:\\.\\d+)?\\s*(?:g|kg|ml|l|oz|fl\\.?\\s*oz|lbs?)\\b|\\b\\d+\\s*(?:units?|pieces?|pcs|packs?|packets?|sachets?|bars?|pouches|cans|bottles)\\b[^\\n]{0,60}?\\d+(?:\\.\\d+)?\\s*(?:g|kg|ml|l|oz|lbs?)\\b"
+            },
+            "explanation": "No \"N units × quantity\" declaration was found, e.g. \"Contents: 4 x 25 g = 100 g\". A multi-pack must say how many units it holds and how much each one contains.",
+            "advice": "Add \"Contents: [number] x [quantity each] = [total net quantity]\".",
+            "fix": {
+              "type": "append_line",
+              "line": "Contents: [number of units] x [quantity per unit] = [total net quantity]"
+            }
+          },
+          {
+            "id": "IN-LM-MULTI-002",
+            "name": "One MRP for the whole multi-pack",
+            "severity": "medium",
+            "checkedBy": "code",
+            "citation": "Legal Metrology (Packaged Commodities) Rules, 2011: retail sale price of a multi-piece or combination package",
+            "source": {
+              "label": "Legal Metrology (Packaged Commodities) Rules, 2011",
+              "url": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf"
+            },
+            "verified": false,
+            "match": {
+              "when": "confirm"
+            },
+            "explanation": "Confirm the outer pack shows one MRP for the whole multi-pack. If the units inside are also sold on their own, each needs its own full label and MRP.",
+            "fix": {
+              "type": "manual"
+            }
+          },
+          {
+            "id": "IN-LM-MULTI-003",
+            "name": "Inner units not marked \"Not for retail sale\"",
+            "severity": "low",
+            "checkedBy": "code",
+            "citation": "Legal Metrology (Packaged Commodities) Rules, 2011: units of a multi-piece package not meant for separate sale",
+            "source": {
+              "label": "Legal Metrology (Packaged Commodities) Rules, 2011",
+              "url": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf"
+            },
+            "verified": false,
+            "match": {
+              "when": "absent",
+              "regex": "\\bnot\\s+(?:for\\s+(?:retail\\s+)?sale|to\\s+be\\s+sold)\\b"
+            },
+            "explanation": "Inner units that aren't fully labelled for sale on their own are usually marked \"Not for retail sale separately\", so they can't be sold loose.",
+            "advice": "Only needed if the inner units don't carry their own full label.",
+            "fix": {
+              "type": "append_line",
+              "line": "Inner units: Not for retail sale separately"
+            }
+          }
+        ],
+        "us": [
+          {
+            "id": "US-FDA-MULTI-001",
+            "name": "Multiunit package contents not declared",
+            "severity": "high",
+            "checkedBy": "code",
+            "citation": "21 CFR 101.105(s): a multiunit retail package declares the number of units, the quantity of each unit and the total quantity",
+            "source": {
+              "label": "21 CFR 101.105 (eCFR)",
+              "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-B/part-101/subpart-G/section-101.105"
+            },
+            "verified": true,
+            "match": {
+              "when": "absent",
+              "regex": "\\b\\d+\\s*(?:x|×|\\*)\\s*\\d+(?:\\.\\d+)?\\s*(?:g|kg|ml|l|oz|fl\\.?\\s*oz|lbs?)\\b|\\b\\d+\\s*(?:units?|pieces?|pcs|packs?|packets?|sachets?|bars?|pouches|cans|bottles)\\b[^\\n]{0,60}?\\d+(?:\\.\\d+)?\\s*(?:g|kg|ml|l|oz|lbs?)\\b"
+            },
+            "explanation": "No \"N units × quantity\" declaration was found, e.g. \"6 bars, 1.4 oz (40 g) each. Net wt. 8.4 oz (240 g)\".",
+            "advice": "State the number of units, the net quantity of each, and the total net quantity.",
+            "fix": {
+              "type": "append_line",
+              "line": "Contents: [number of units] x [ounces per unit] oz ([grams per unit] g). Net wt. [total ounces] oz ([total grams] g)"
+            }
+          },
+          {
+            "id": "US-FDA-MULTI-002",
+            "name": "Inner units sold separately need their own labels",
+            "severity": "medium",
+            "checkedBy": "code",
+            "citation": "21 CFR 101.105(s): multiunit retail packages",
+            "source": {
+              "label": "21 CFR 101.105 (eCFR)",
+              "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-B/part-101/subpart-G/section-101.105"
+            },
+            "verified": false,
+            "match": {
+              "when": "confirm"
+            },
+            "explanation": "Confirm whether the units inside are ever sold on their own. If they are, each needs its own full label, including net quantity.",
+            "fix": {
+              "type": "manual"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

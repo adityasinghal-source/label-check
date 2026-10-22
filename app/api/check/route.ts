@@ -4,7 +4,8 @@ import { buildReport, noCompliant } from "@/lib/buildReport";
 import { checkCodeRules, ruleFlag } from "@/lib/codeRules";
 import { checkInput } from "@/lib/inputGuard";
 import { MESSAGES } from "@/lib/messages";
-import { allRules, getCategory, getChannels, getMarket, layersFor } from "@/lib/rulepacks";
+import { printSizes, validDimensions } from "@/lib/pdp";
+import { allRules, getCategory, getChannels, getMarket, getPackType, layersFor } from "@/lib/rulepacks";
 import { findQuote } from "@/lib/sentences";
 import type { CheckResponse, Explanation, Flag, VisualFindings } from "@/lib/types";
 import { validateFlags } from "@/lib/validateFlags";
@@ -34,6 +35,9 @@ export async function POST(request: Request) {
   if (!market) return reply({ status: "error", message: MESSAGES.chooseMarket });
   const channels = getChannels(market.id, body.channels);
   const category = getCategory(body.category);
+  const packType = getPackType(body.packType);
+  // Pack dimensions (optional) give the minimum print sizes for the principal display panel.
+  const sizes = validDimensions(body.dimensions) ? printSizes(market.id, body.dimensions) : null;
   // What vision saw on uploaded artwork (only true values count; nothing is assumed without a photo).
   const visual: VisualFindings | null =
     body.visual && typeof body.visual === "object"
@@ -63,11 +67,11 @@ export async function POST(request: Request) {
 
   // Plain-code checks are instant, so they run first and their findings go to the rejection explainer.
   const allergens = labelText ? checkAllergens(labelText, market.pack) : null;
-  const context = { nutrientClaims: market.pack.nutrientClaims, nutrientBasis: market.pack.nutrientBasis, visual };
+  const context = { nutrientClaims: market.pack.nutrientClaims, nutrientBasis: market.pack.nutrientBasis, visual, categoryId: category.id };
   const codeFlags: Flag[] = labelText
-    ? layersFor(market, channels, category).flatMap((layer) => checkCodeRules(labelText, layer.rules, layer.channels, context))
+    ? layersFor(market, channels, category, packType).flatMap((layer) => checkCodeRules(labelText, layer.rules, layer.channels, context))
     : [];
-  const rules = allRules(market, channels, category);
+  const rules = allRules(market, channels, category, packType);
   const sellingThrough = channels.length ? channels.map((c) => c.label).join(", ") : market.label;
   const issuesFound = [...(allergens?.flags ?? []), ...codeFlags].filter((f) => !f.confirmOnly);
 
@@ -93,8 +97,22 @@ export async function POST(request: Request) {
     // Statement of identity: the AI names the product; code checks the name is really on the label.
     const identity = market.pack.rules.find((r) => r.id === market.pack.identityRuleId);
     const name = claims.product_name.trim();
-    if (identity && (!name || !findQuote(labelText, name))) flags.push(ruleFlag(identity, "", [], { foundBy: "ai" }));
-    report = buildReport({ market, channels, category, visual, labelText, aiFlags: flags, allergens, codeFlags, droppedAiFlags: dropped });
+    const nameAt = name ? findQuote(labelText, name) : null;
+    if (identity && !nameAt) flags.push(ruleFlag(identity, "", [], { foundBy: "ai" }));
+    report = buildReport({
+      market,
+      channels,
+      category,
+      packType,
+      visual,
+      printSizes: sizes,
+      productName: nameAt ? labelText.slice(...nameAt) : "",
+      labelText,
+      aiFlags: flags,
+      allergens,
+      codeFlags,
+      droppedAiFlags: dropped,
+    });
   }
 
   let explanation: Explanation | null = null;

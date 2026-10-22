@@ -1,16 +1,32 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import type { Artwork } from "@/components/ArtworkPreview";
+import PackCalculator, { EMPTY_DIMENSIONS, toDimensions, type DimensionsDraft } from "@/components/PackCalculator";
 import Report from "@/components/Report";
+import RulesModal from "@/components/RulesModal";
 import { card, chip, secondaryButton } from "@/components/styles";
+import { fixAll } from "@/lib/fixAll";
 import { historySnapshot, NO_HISTORY, saveToHistory, subscribeHistory, type HistoryEntry } from "@/lib/history";
 import { MESSAGES } from "@/lib/messages";
-import { CATEGORIES, CHANNELS, MARKETS } from "@/lib/rulepacks";
+import { CATEGORIES, CHANNELS, MARKETS, PACK_TYPES } from "@/lib/rulepacks";
+import { sampleArtworkFile } from "@/lib/sampleArtwork";
+import { decodeState, encodeState, type SharedInputs } from "@/lib/shareState";
 import { readiness } from "@/lib/summary";
-import type { CheckResponse, Explanation, PanelId, ReadImageResponse, Report as ReportData, VisualFindings } from "@/lib/types";
+import type {
+  ArtworkRegion,
+  CheckResponse,
+  Explanation,
+  Flag,
+  PackType,
+  PanelId,
+  ReadImageResponse,
+  Report as ReportData,
+  VisualFindings,
+} from "@/lib/types";
 
-type Inputs = { text: string; market: string; channels: string[]; category: string; rejection: string };
-type Example = Inputs & { title: string; detail: string };
+type Inputs = SharedInputs;
+type Example = Omit<Inputs, "packType" | "dimensions"> & { title: string; detail: string };
 
 const GRANOLA =
   "Gluten-free granola bites. Supports healthy blood sugar. Ingredients: rolled oats, peanut butter, honey, natural flavor (contains milk), sea salt";
@@ -58,7 +74,10 @@ const ACCEPT = "image/png,image/jpeg,image/webp,application/pdf";
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 type UploadFile = { id: string; file: File; panel: PanelId | ""; preview: string | null };
 
-type Result = { report: ReportData | null; explanation: Explanation | null; notice?: string };
+type Result = { report: ReportData | null; explanation: Explanation | null; notice?: string; inputs: Inputs; artwork: Artwork | null };
+
+const draftFrom = (d: Inputs["dimensions"]): DimensionsDraft =>
+  d ? { shape: d.shape, unit: d.unit, width: String(d.width), height: d.height ? String(d.height) : "" } : EMPTY_DIMENSIONS;
 type Problem = { kind: "input" | "error"; text: string };
 
 async function request<T>(url: string, init: RequestInit): Promise<T | { status: "error"; message: string }> {
@@ -106,7 +125,9 @@ function LoadingState({ steps }: { steps: string[] }) {
   );
 }
 
-function SampleCards({ onPick }: { onPick: (e: Example) => void }) {
+const ARTWORK_SAMPLE = { title: "Sample artwork check (with image)", detail: "India · mock makhana pack · reads the image, then checks" };
+
+function SampleCards({ onPick, onArtwork }: { onPick: (e: Example) => void; onArtwork: () => void }) {
   return (
     <ul className="grid gap-3 sm:grid-cols-2">
       {EXAMPLES.map((example) => (
@@ -121,6 +142,12 @@ function SampleCards({ onPick }: { onPick: (e: Example) => void }) {
           </button>
         </li>
       ))}
+      <li className="sm:col-span-2">
+        <button type="button" onClick={onArtwork} className="w-full rounded-lg border border-line bg-raised p-3 text-left hover:border-ink">
+          <span className="block font-medium">{ARTWORK_SAMPLE.title}</span>
+          <span className="block text-xs text-muted">{ARTWORK_SAMPLE.detail}</span>
+        </button>
+      </li>
     </ul>
   );
 }
@@ -153,6 +180,9 @@ export default function Home() {
   const [panels, setPanels] = useState<Record<PanelId, string>>({ front: "", back: "", nutrition: "" });
   const [market, setMarket] = useState("us");
   const [category, setCategory] = useState("general");
+  const [packType, setPackType] = useState<PackType>("single");
+  const [dimensions, setDimensions] = useState<DimensionsDraft>(EMPTY_DIMENSIONS);
+  const [regions, setRegions] = useState<ArtworkRegion[]>([]);
   const [channels, setChannels] = useState<string[]>([]);
   const [rejection, setRejection] = useState("");
   const [rejectionOpen, setRejectionOpen] = useState(false);
@@ -167,6 +197,22 @@ export default function Home() {
   // Wake the API routes while the user is still typing, so the first check is fast.
   useEffect(() => {
     for (const route of ["/api/check", "/api/read-image"]) fetch(route).catch(() => {});
+  }, []);
+
+  // A shared link (?state=…) fills in the form and runs the same check straight away.
+  useEffect(() => {
+    const encoded = new URLSearchParams(window.location.search).get("state");
+    if (!encoded) return;
+    decodeState(encoded).then((shared) => {
+      if (!shared || !MARKETS.some((m) => m.id === shared.market)) {
+        setProblem({ kind: "input", text: "That share link is damaged or out of date. Paste your label text to check it again." });
+        return;
+      }
+      fill(shared);
+      check(shared);
+    });
+    // Runs once on load; fill and check only use state setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const labelText = mode === "single" ? text : composePanels(panels);
@@ -195,6 +241,9 @@ export default function Home() {
     setPanels({ front: "", back: "", nutrition: "" });
     setMarket("us");
     setCategory("general");
+    setPackType("single");
+    setDimensions(EMPTY_DIMENSIONS);
+    setRegions([]);
     setChannels([]);
     setRejection("");
     setRejectionOpen(false);
@@ -206,8 +255,35 @@ export default function Home() {
     setResult(null);
   }
 
-  async function check(override?: Inputs) {
-    const inputs: Inputs = override ?? { text: labelText, market, channels, category, rejection: rejectionOpen ? rejection : "" };
+  function currentInputs(): Inputs {
+    return {
+      text: labelText,
+      market,
+      channels,
+      category,
+      rejection: rejectionOpen ? rejection : "",
+      packType,
+      dimensions: toDimensions(dimensions),
+    };
+  }
+
+  // Puts a set of inputs (a sample, a shared link, a past check) into the form.
+  function fill(inputs: Inputs) {
+    setMode("single");
+    setText(inputs.text);
+    setMarket(inputs.market);
+    setChannels(inputs.channels);
+    setCategory(inputs.category);
+    setPackType(inputs.packType);
+    setDimensions(draftFrom(inputs.dimensions));
+    setRejection(inputs.rejection);
+    setRejectionOpen(!!inputs.rejection);
+  }
+
+  async function check(override?: Inputs, seen: { visual: VisualFindings | null; artwork: Artwork | null } | null = null) {
+    const inputs: Inputs = override ?? currentInputs();
+    // Photo findings belong to the files on screen, so a sample or shared link only gets the ones passed in.
+    const used = seen ?? (override ? { visual: null, artwork: null } : { visual, artwork: artworkNow() });
     setBusy("check");
     setProblem(null);
     setInfo(null);
@@ -215,10 +291,10 @@ export default function Home() {
     const res = await request<CheckResponse>("/api/check", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...inputs, visual: override ? null : visual }),
+      body: JSON.stringify({ ...inputs, visual: used.visual }),
     });
     if (res.status === "ok") {
-      setResult({ report: res.report, explanation: res.explanation, notice: res.notice });
+      setResult({ report: res.report, explanation: res.explanation, notice: res.notice, inputs, artwork: used.artwork });
       const verdict = res.report ? readiness(res.report.flags, res.report.packVersion) : null;
       const tally = verdict ? (verdict.verdict.startsWith("No issues") ? verdict.verdict : `${verdict.verdict}: ${verdict.counts}`) : "Rejection explained";
       saveToHistory({ inputs, report: res.report, explanation: res.explanation, tally });
@@ -228,35 +304,99 @@ export default function Home() {
     setBusy(null);
   }
 
+  function artworkNow(list: UploadFile[] = uploads, found: ArtworkRegion[] = regions): Artwork | null {
+    if (!list.some((u) => u.preview)) return null;
+    return { files: list.map((u) => ({ url: u.preview, name: u.file.name })), regions: found };
+  }
+
   // A sample fills the form and runs straight away: one click to a report.
   function runExample(example: Example) {
     resetAll();
-    setText(example.text);
-    setMarket(example.market);
-    setChannels(example.channels);
-    setCategory(example.category);
-    setRejection(example.rejection);
-    setRejectionOpen(!!example.rejection);
+    const inputs: Inputs = {
+      text: example.text,
+      market: example.market,
+      channels: example.channels,
+      category: example.category,
+      rejection: example.rejection,
+      packType: "single",
+      dimensions: null,
+    };
+    fill(inputs);
     window.scrollTo({ top: 0, behavior: "smooth" });
-    check({ text: example.text, market: example.market, channels: example.channels, category: example.category, rejection: example.rejection });
+    check(inputs);
+  }
+
+  // The artwork sample: draws a mock pack, reads it like an upload, then checks the text it read.
+  async function runArtworkSample() {
+    resetAll();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    const file = await sampleArtworkFile();
+    const upload: UploadFile = { id: `sample-${Date.now()}`, file, panel: "", preview: URL.createObjectURL(file) };
+    const sampleChannels = ["blinkit", "zepto"];
+    const dims: DimensionsDraft = { shape: "rect", unit: "cm", width: "12", height: "18" };
+    setUploads([upload]);
+    setMarket("india");
+    setChannels(sampleChannels);
+    setDimensions(dims);
+    const read = await readFiles([upload]);
+    if (!read) return;
+    const inputs: Inputs = {
+      text: composePanels(read.panels),
+      market: "india",
+      channels: sampleChannels,
+      category: "general",
+      rejection: "",
+      packType: "single",
+      dimensions: toDimensions(dims),
+    };
+    check(inputs, { visual: read.visual, artwork: artworkNow([upload], read.regions) });
   }
 
   function restore(entry: HistoryEntry) {
     resetAll();
-    setText(entry.inputs.text);
-    setMarket(entry.inputs.market);
-    setChannels(entry.inputs.channels);
-    setCategory(entry.inputs.category);
-    setRejection(entry.inputs.rejection);
-    setRejectionOpen(!!entry.inputs.rejection);
-    setResult({ report: entry.report, explanation: entry.explanation });
+    fill(entry.inputs);
+    setResult({ report: entry.report, explanation: entry.explanation, inputs: entry.inputs, artwork: null });
   }
 
   function recheck(fixedText: string) {
     setMode("single");
     setText(fixedText);
     window.scrollTo({ top: 0, behavior: "smooth" });
-    check({ text: fixedText, market, channels, category, rejection: rejectionOpen ? rejection : "" });
+    check({ ...currentInputs(), text: fixedText });
+  }
+
+  // "Apply to draft" on one card: that single fix, made in the box (or panel) holding the phrase.
+  function applyFix(flag: Flag): boolean {
+    const one = (t: string) => fixAll(t, [flag], result?.report?.allergenStatement ?? null).fixedText;
+    if (mode === "single") {
+      const next = one(text);
+      if (next === text.trim()) return false;
+      setText(next);
+      return true;
+    }
+    // The allergen line belongs with the ingredients, on the back panel.
+    const order: PanelId[] = flag.fix?.type === "allergen_statement" ? ["back", "front", "nutrition"] : ["front", "back", "nutrition"];
+    for (const id of order) {
+      const current = panels[id];
+      if (!current.trim()) continue;
+      const next = one(current);
+      if (next !== current.trim()) {
+        setPanels((v) => ({ ...v, [id]: next }));
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async function shareLink(): Promise<string | null> {
+    if (!result) return null;
+    try {
+      const url = `${window.location.origin}${window.location.pathname}?state=${await encodeState(result.inputs)}`;
+      window.history.replaceState(null, "", url);
+      return url;
+    } catch {
+      return null;
+    }
   }
 
   function addFiles(list: FileList | null) {
@@ -268,6 +408,7 @@ export default function Home() {
       return;
     }
     setProblem(null);
+    setRegions([]);
     setUploads((current) =>
       [...current, ...incoming]
         .slice(0, 3)
@@ -284,25 +425,28 @@ export default function Home() {
     );
   }
 
-  async function readFiles() {
+  async function readFiles(list: UploadFile[] = uploads) {
     setBusy("image");
     setProblem(null);
     setInfo(null);
     const form = new FormData();
-    for (const u of uploads) {
+    for (const u of list) {
       form.append("files", u.file);
       form.append("panels", u.panel);
     }
     const res = await request<ReadImageResponse>("/api/read-image", { method: "POST", body: form });
-    if (res.status === "ok") {
-      setMode("panels");
-      setPanels({ front: res.panels.front ?? "", back: res.panels.back ?? "", nutrition: res.panels.nutrition ?? "" });
-      setVisual(res.visual);
-      setInfo("We read this text from your files. Check each panel and fix any mistakes, then click Check.");
-    } else {
-      setProblem({ kind: res.status === "needs_text" ? "input" : "error", text: res.message });
-    }
     setBusy(null);
+    if (res.status !== "ok") {
+      setProblem({ kind: res.status === "needs_text" ? "input" : "error", text: res.message });
+      return null;
+    }
+    const read = { front: res.panels.front ?? "", back: res.panels.back ?? "", nutrition: res.panels.nutrition ?? "" };
+    setMode("panels");
+    setPanels(read);
+    setVisual(res.visual);
+    setRegions(res.regions);
+    setInfo("We read this text from your files. Check each panel and fix any mistakes, then click Check.");
+    return { panels: read, visual: res.visual, regions: res.regions };
   }
 
   const inputClass =
@@ -334,6 +478,14 @@ export default function Home() {
                   <span className="block text-xs text-muted">{e.detail}</span>
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={runArtworkSample}
+                className="block w-full rounded-md border-t border-line px-3 py-2 text-left text-sm hover:bg-raised"
+              >
+                <span className="block font-medium">{ARTWORK_SAMPLE.title}</span>
+                <span className="block text-xs text-muted">{ARTWORK_SAMPLE.detail}</span>
+              </button>
             </Menu>
             <Menu label={`Recent checks (${history.length})`}>
               {history.length === 0 ? (
@@ -355,7 +507,7 @@ export default function Home() {
                   ))
               )}
             </Menu>
-            <span className="hidden rounded-full border border-line px-3 py-1 text-xs text-muted sm:inline">Rule packs v0.1 · not legal advice</span>
+            <RulesModal label={`Rule packs v${MARKETS[0].pack.version} · not legal advice`} />
           </div>
         </div>
       </header>
@@ -484,7 +636,7 @@ export default function Home() {
               </ul>
             )}
             {uploads.length > 0 && (
-              <button type="button" onClick={readFiles} disabled={busy !== null} className={`${secondaryButton} mt-2`}>
+              <button type="button" onClick={() => readFiles()} disabled={busy !== null} className={`${secondaryButton} mt-2`}>
                 {busy === "image" ? "Reading files…" : "Read text from files"}
               </button>
             )}
@@ -540,8 +692,24 @@ export default function Home() {
                   </option>
                 ))}
               </select>
+              <div className="mt-2 grid grid-cols-2 rounded-lg border border-line bg-raised p-1 text-xs font-semibold" role="radiogroup" aria-label="Pack type">
+                {PACK_TYPES.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={packType === p.id}
+                    onClick={() => setPackType(p.id)}
+                    className={`rounded-md px-2 py-1.5 ${packType === p.id ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
+
+          <PackCalculator market={market} value={dimensions} onChange={setDimensions} />
 
           <fieldset>
             <div className="flex items-center justify-between gap-2">
@@ -640,14 +808,32 @@ export default function Home() {
           {busy === "check" ? (
             <LoadingState steps={loadingSteps} />
           ) : result ? (
-            <Report report={result.report} explanation={result.explanation} onRecheck={recheck} />
+            <>
+              {result.report && labelText.trim() !== result.inputs.text.trim() && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-low bg-low-soft p-3 text-sm text-low print:hidden" role="status">
+                  Your draft has changed since this report.
+                  <button type="button" onClick={() => check()} className="font-semibold underline">
+                    Check again
+                  </button>
+                </div>
+              )}
+              <Report
+                key={result.inputs.text + result.report?.flags.length}
+                report={result.report}
+                explanation={result.explanation}
+                artwork={result.artwork}
+                onRecheck={recheck}
+                onApply={applyFix}
+                onShare={shareLink}
+              />
+            </>
           ) : (
             <div className={`${card} p-6 print:hidden`}>
               <p className="text-lg font-semibold">{problem ? "Or try a sample" : "Your report will appear here"}</p>
               <p className="mb-4 mt-1 text-sm text-muted">
                 Paste your label on the left, pick where you sell, and click Check. Or run one of these samples in one click:
               </p>
-              <SampleCards onPick={runExample} />
+              <SampleCards onPick={runExample} onArtwork={runArtworkSample} />
             </div>
           )}
         </section>

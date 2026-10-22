@@ -13,7 +13,7 @@ export type FixResult = {
 const withPeriod = (s: string) => (/[.!?]$/.test(s.trim()) ? s.trim() : `${s.trim()}.`);
 
 // Applies every fix that can be applied automatically, in this order:
-// 1. sentence rewrites (AI) and sentence removals (channel rules); a rewrite beats a removal
+// 1. sentence rewrites (AI) and sentence removals (channel rules); a rewrite beats a removal; then in-place word swaps
 // 2. the allergen "Contains:" line, replacing any existing one
 // 3. lines a channel needs added, such as the FSSAI licence number
 export function fixAll(text: string, allFlags: Flag[], allergenStatement: string | null): FixResult {
@@ -50,6 +50,20 @@ export function fixAll(text: string, allFlags: Flag[], allergenStatement: string
       fixed = fixed.slice(0, edit.start) + edit.replacement + fixed.slice(edit.end);
       applied.push(`Rewrote “${original.trim()}” → “${edit.replacement}” (${edit.flag.ruleId})`);
     }
+  }
+
+  // In-place word swaps (additives → "Functional class (INS …)"), looked up in the ingredient list first.
+  for (const flag of flags) {
+    if (flag.fix?.type !== "replace_text" || !flag.suggestedRewrite) continue;
+    const range = ingredientsRange(fixed);
+    const inList = range ? findQuote(fixed.slice(...range), flag.quotedText) : null;
+    const found = inList && range ? ([range[0] + inList[0], range[0] + inList[1]] as const) : findQuote(fixed, flag.quotedText);
+    if (!found) {
+      needsYou.push(flag);
+      continue;
+    }
+    fixed = fixed.slice(0, found[0]) + flag.suggestedRewrite + fixed.slice(found[1]);
+    applied.push(`Declared “${flag.quotedText}” as “${flag.suggestedRewrite}” (${flag.ruleId})`);
   }
 
   // 2. Allergen statement.

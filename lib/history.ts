@@ -1,3 +1,4 @@
+import type { SharedInputs } from "./shareState";
 import type { Explanation, Report } from "./types";
 
 // The last 5 checks, kept in this browser only. Storage can be blocked (private mode), so every
@@ -5,13 +6,14 @@ import type { Explanation, Report } from "./types";
 export type HistoryEntry = {
   id: string;
   at: string;
-  inputs: { text: string; market: string; channels: string[]; category: string; rejection: string };
+  inputs: SharedInputs;
   report: Report | null;
   explanation: Explanation | null;
   tally: string;
 };
 
-const KEY = "shelfready-history";
+// v3: reports gained print sizes, barcodes and pack type, so older entries are not read.
+const KEY = "shelfready-history-v3";
 const MAX = 5;
 export const NO_HISTORY: HistoryEntry[] = [];
 

@@ -1,6 +1,8 @@
 import type { AllergenResult } from "./allergens";
 import { CATEGORIES, type Market } from "./rulepacks";
-import type { Category, Channel, Flag, Report, RuleStatus, VisualFindings } from "./types";
+import { findBarcodes } from "./gs1";
+import type { PrintSizes } from "./pdp";
+import type { Category, Channel, Flag, PackType, Report, RuleStatus, VisualFindings } from "./types";
 
 // This tool can only say "no issues found against this rule pack", never that a label is compliant.
 export function noCompliant(s: string) {
@@ -13,7 +15,10 @@ export function buildReport({
   market,
   channels = [],
   category = CATEGORIES[0],
+  packType = "single",
   visual = null,
+  printSizes = null,
+  productName = "",
   labelText,
   aiFlags,
   allergens,
@@ -23,7 +28,10 @@ export function buildReport({
   market: Market;
   channels?: Channel[];
   category?: Category;
+  packType?: PackType;
   visual?: VisualFindings | null;
+  printSizes?: PrintSizes | null;
+  productName?: string;
   labelText: string;
   aiFlags: Flag[];
   allergens: AllergenResult;
@@ -64,9 +72,13 @@ export function buildReport({
     packLabel: pack.label,
     packVersion: pack.version,
     category: { id: category.id, label: category.label },
+    packType,
     channels: channels.map((c) => ({ id: c.id, label: c.label, note: c.note })),
     visualChecklist: pack.visualChecklist,
     visual,
+    productName,
+    barcodes: findBarcodes(labelText).map((b) => b.check),
+    printSizes,
     labelText,
     flags,
     ruleStatuses,

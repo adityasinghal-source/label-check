@@ -1,6 +1,6 @@
 import { MissingKeyError, readLabelImages, type Upload, type UploadType } from "@/lib/ai";
 import { MESSAGES } from "@/lib/messages";
-import type { PanelId, ReadImageResponse } from "@/lib/types";
+import type { ArtworkRegion, PanelId, ReadImageResponse } from "@/lib/types";
 import { connection } from "next/server";
 
 export const maxDuration = 60;
@@ -9,6 +9,14 @@ const ALLOWED_TYPES: UploadType[] = ["image/jpeg", "image/png", "image/webp", "a
 const MAX_BYTES = 10 * 1024 * 1024;
 const MAX_FILES = 3;
 const PANELS: PanelId[] = ["front", "back", "nutrition"];
+
+// Keep only boxes on a real file with sensible 0–1000 coordinates; PDFs have no image to pin them on.
+function cleanRegions(regions: { file: number; item: ArtworkRegion["item"]; box: number[] }[], fileCount: number): ArtworkRegion[] {
+  return regions
+    .filter((r) => Number.isInteger(r.file) && r.file >= 1 && r.file <= fileCount && r.box.length === 4)
+    .map((r) => ({ ...r, file: r.file - 1, box: r.box.map((n) => Math.min(1000, Math.max(0, n))) as ArtworkRegion["box"] }))
+    .filter((r) => r.box[2] > r.box[0] && r.box[3] > r.box[1]);
+}
 
 function reply(body: ReadImageResponse) {
   return Response.json(body);
@@ -49,6 +57,7 @@ export async function POST(request: Request) {
       text,
       panels: { front: result.front.trim(), back: result.back.trim(), nutrition: result.nutrition.trim() },
       visual: { vegMark: result.veg_mark !== "not_seen", fssaiLogo: result.fssai_logo, barcode: result.barcode },
+      regions: cleanRegions(result.regions, files.length),
     });
   } catch (error) {
     if (error instanceof MissingKeyError) return reply({ status: "error", message: MESSAGES.missingKey });

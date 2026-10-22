@@ -1,4 +1,7 @@
+import { findBareAdditives } from "./additives";
 import { ingredientsRange, wordPattern } from "./allergens";
+import { checkFssaiNumber, findFssaiNumbers } from "./fssaiNumber";
+import { findBarcodes } from "./gs1";
 import { sentenceRange } from "./sentences";
 import { checkNutrientClaims, thresholdWords } from "./nutrition";
 import { declaredShelfLife } from "./shelfLife";
@@ -30,7 +33,13 @@ export function findPlaceholders(text: string): string[] {
   return [...new Set([...text.matchAll(PLACEHOLDER)].map((m) => m[0]))];
 }
 
-export type RuleContext = { nutrientClaims?: NutrientClaim[]; nutrientBasis?: string; visual?: VisualFindings | null };
+export type RuleContext = {
+  nutrientClaims?: NutrientClaim[];
+  nutrientBasis?: string;
+  visual?: VisualFindings | null;
+  // Imported food needs a Central FSSAI licence.
+  categoryId?: string;
+};
 
 // Rules checked by plain code. `channels` is stamped on every flag: [] for the market's own rules,
 // or the channel IDs the rules belong to.
@@ -73,6 +82,33 @@ export function checkCodeRules(labelText: string, rules: Rule[], channels: strin
             }),
           );
         }
+      }
+    } else if (match.when === "fssai_number") {
+      const placeholders = findPlaceholders(labelText);
+      for (const { number, raw } of findFssaiNumbers(labelText)) {
+        // Dummy numbers like 12345678901234 are already flagged as placeholders.
+        if (placeholders.some((p) => raw.includes(p) || p.includes(number))) continue;
+        const result = checkFssaiNumber(number, { needsCentral: context.categoryId === "imported" });
+        if (!result.ok) flags.push(ruleFlag(rule, raw, channels, { explanation: `${result.problem} ${rule.explanation ?? ""}`.trim() }));
+      }
+    } else if (match.when === "barcode") {
+      for (const { raw, check } of findBarcodes(labelText)) {
+        if (check.valid) continue;
+        flags.push(
+          ruleFlag(rule, raw, channels, {
+            explanation: `${check.format} ${check.code} fails the Modulo-10 check: its last digit should be ${check.expected}, not ${check.code.at(-1)}. ${rule.explanation ?? ""}`.trim(),
+          }),
+        );
+      }
+    } else if (match.when === "additives") {
+      for (const additive of findBareAdditives(labelText)) {
+        flags.push(
+          ruleFlag(rule, additive.quote, channels, {
+            suggestedRewrite: additive.rewrite,
+            fix: { type: "replace_text" },
+            explanation: `"${additive.quote}" is a food additive (${additive.functionalClass.toLowerCase()}). ${rule.explanation ?? ""}`.trim(),
+          }),
+        );
       }
     } else if (match.when === "confirm") {
       flags.push(ruleFlag(rule, "", channels, { confirmOnly: true, fix: { type: "manual" } }));

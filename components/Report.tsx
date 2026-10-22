@@ -10,7 +10,21 @@ import { card, chip, chipNeutral, chipUnverified, secondaryButton, sectionLabel,
 import { noIssuesHeading } from "@/lib/messages";
 import { reportSummary } from "@/lib/reportSummary";
 import { readiness } from "@/lib/summary";
+import type { PrintSizes } from "@/lib/pdp";
 import type { Explanation, Flag, Report as ReportData, VisualFindings } from "@/lib/types";
+import ArtworkPreview, { type Artwork } from "@/components/ArtworkPreview";
+import ListingCard from "@/components/ListingCard";
+import ShareButton from "@/components/ShareButton";
+
+type Filter = "all" | "high" | "medium" | "low" | "code" | "ai";
+const FILTERS: { id: Filter; label: string; test: (f: Flag) => boolean }[] = [
+  { id: "all", label: "All", test: () => true },
+  { id: "high", label: "High risk", test: (f) => f.severity === "high" },
+  { id: "medium", label: "Medium", test: (f) => f.severity === "medium" },
+  { id: "low", label: "Low", test: (f) => f.severity === "low" },
+  { id: "code", label: "Rule check", test: (f) => f.foundBy === "code" },
+  { id: "ai", label: "AI check", test: (f) => f.foundBy === "ai" },
+];
 
 const TONE_STYLE = {
   red: "border-high/50 bg-high-soft text-high",
@@ -36,16 +50,22 @@ function FlagCard({
   flag,
   id,
   selected,
+  hidden,
   channelLabels,
+  applied,
   onSelect,
   onLocate,
+  onApply,
 }: {
   flag: Flag;
   id: string;
   selected: boolean;
+  hidden: boolean;
   channelLabels: string[];
+  applied: boolean;
   onSelect: () => void;
   onLocate?: () => void;
+  onApply?: () => void;
 }) {
   const fixLabel =
     flag.fix?.type === "allergen_statement"
@@ -57,6 +77,7 @@ function FlagCard({
   return (
     <li
       id={id}
+      hidden={hidden}
       onClick={onSelect}
       className={`scroll-mt-6 rounded-xl border bg-surface p-4 ${selected ? "border-ink ring-2 ring-ink" : "border-line"}`}
     >
@@ -93,9 +114,26 @@ function FlagCard({
       {flag.suggestedRewrite ? (
         <div className="mt-3 rounded-lg bg-pass-soft p-3">
           <p className="text-xs font-semibold text-pass">{fixLabel}</p>
-          <div className="mt-1 flex items-start gap-3">
-            <p className="flex-1 text-sm">{flag.suggestedRewrite}</p>
-            <CopyButton text={flag.suggestedRewrite} />
+          <div className="mt-1 flex flex-wrap items-start gap-2">
+            <p className="min-w-0 flex-1 basis-48 text-sm">{flag.suggestedRewrite}</p>
+            <div className="flex gap-2">
+              <CopyButton text={flag.suggestedRewrite} />
+              {onApply && (
+                <button
+                  type="button"
+                  disabled={applied}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onApply();
+                  }}
+                  className={`shrink-0 rounded-md border px-2.5 py-1 text-xs font-semibold print:hidden ${
+                    applied ? "border-pass bg-pass-soft text-pass" : "border-ink bg-surface text-ink hover:bg-raised"
+                  }`}
+                >
+                  <span aria-live="polite">{applied ? "✓ Applied to draft" : "Apply to draft"}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       ) : (
@@ -128,7 +166,40 @@ const SEEN: { key: keyof VisualFindings; pattern: RegExp; label: string }[] = [
   { key: "barcode", pattern: /barcode/i, label: "barcode" },
 ];
 
-function VisualChecklist({ items, visual }: { items: string[]; visual: VisualFindings | null }) {
+function PrintSizesList({ sizes }: { sizes: PrintSizes | null }) {
+  if (!sizes) {
+    return (
+      <p className="mt-3 rounded-lg bg-raised p-3 text-sm">
+        Add your pack dimensions under <span className="font-semibold">Pack dimensions &amp; font calculator</span> to get the exact minimum print sizes.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-3 rounded-lg border border-line bg-raised p-3">
+      <p className="text-sm font-semibold">
+        Principal display panel: {sizes.area.toLocaleString()} {sizes.areaUnit}{" "}
+        <span className="font-normal text-muted">({sizes.areaNote})</span>
+      </p>
+      <ul className="mt-2 space-y-2 text-sm">
+        {sizes.specs.map((spec) => (
+          <li key={spec.item}>
+            <span className="font-semibold">{spec.item}:</span> {spec.minimum}
+            {!spec.verified && <span className={`${chip} ${chipUnverified} ml-2`}>Unverified</span>}
+            <span className="block text-xs text-muted">
+              {spec.citation}.{" "}
+              <a href={spec.source.url} target="_blank" rel="noreferrer" className="underline">
+                {spec.source.label}
+              </a>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function VisualChecklist({ report }: { report: ReportData }) {
+  const { visualChecklist: items, visual, printSizes, barcodes } = report;
   const [done, setDone] = useState<Record<number, boolean>>({});
   return (
     <section className={`${card} p-4`} aria-labelledby="visual-checklist">
@@ -139,6 +210,24 @@ function VisualChecklist({ items, visual }: { items: string[]; visual: VisualFin
         Text can&apos;t show sizes, colours or placement. Check these on the final artwork
         {visual ? "; items your photo showed are marked." : ", or upload a photo to have symbols spotted."}
       </p>
+      <PrintSizesList sizes={printSizes} />
+      {barcodes.length > 0 && (
+        <ul className="mt-3 space-y-1 text-sm">
+          {barcodes.map((b) => (
+            <li key={b.code}>
+              <span className="font-semibold">
+                Barcode {b.code} ({b.format}):
+              </span>{" "}
+              {b.valid ? (
+                <span className="text-pass">✓ check digit correct</span>
+              ) : (
+                <span className="font-semibold text-high">check digit wrong (should end in {b.expected})</span>
+              )}{" "}
+              · {b.prefix}
+            </li>
+          ))}
+        </ul>
+      )}
       <ul className="mt-3 space-y-2 text-sm">
         {items.map((item, i) => {
           const seen = visual ? SEEN.find((s) => s.pattern.test(item) && visual[s.key]) : undefined;
@@ -166,18 +255,40 @@ function VisualChecklist({ items, visual }: { items: string[]; visual: VisualFin
 export default function Report({
   report,
   explanation,
+  artwork,
   onRecheck,
+  onApply,
+  onShare,
 }: {
   report: ReportData | null;
   explanation: Explanation | null;
+  artwork?: Artwork | null;
   onRecheck?: (text: string) => void;
+  // Applies one flag's fix to the label being edited; false when the phrase is no longer there.
+  onApply?: (flag: Flag) => boolean;
+  // Builds a link that re-runs this check.
+  onShare?: () => Promise<string | null>;
 }) {
   const [selected, setSelected] = useState<number | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [applied, setApplied] = useState<Set<number>>(() => new Set());
+  const [applyMiss, setApplyMiss] = useState<number | null>(null);
   const cardId = (i: number) => `flag-${i}`;
 
   function select(i: number) {
     setSelected(i);
+    // A card hidden by a filter pill can't be shown, so jumping to it clears the filter.
+    if (report && !FILTERS.find((f) => f.id === filter)!.test(report.flags[i])) setFilter("all");
     pulse(() => document.getElementById(cardId(i)));
+  }
+
+  function apply(i: number, flag: Flag) {
+    if (onApply?.(flag)) {
+      setApplied((s) => new Set(s).add(i));
+      setApplyMiss(null);
+    } else {
+      setApplyMiss(i);
+    }
   }
 
   function locate(i: number) {
@@ -201,6 +312,7 @@ export default function Report({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-bold">Audit report</h2>
         <div className="flex flex-wrap gap-2 print:hidden">
+          {onShare && <ShareButton onShare={onShare} />}
           <CopyButton text={reportSummary(report, explanation)} label="Copy report summary" />
           <button type="button" onClick={() => window.print()} className={secondaryButton}>
             Export PDF
@@ -236,6 +348,10 @@ export default function Report({
         </section>
       )}
 
+      <ListingCard report={report} />
+
+      {artwork && <ArtworkPreview artwork={artwork} report={report} onSelect={select} />}
+
       <section>
         <p className={`mb-1 ${sectionLabel}`}>
           Your label{report.flags.some((f) => f.quotedText) && ": hover or click a highlighted phrase to see its rule and fix"}
@@ -250,19 +366,53 @@ export default function Report({
       )}
 
       {report.flags.length > 0 && (
-        <ul className="space-y-3">
-          {report.flags.map((flag, i) => (
-            <FlagCard
-              key={`${flag.ruleId}-${flag.quotedText}-${i}`}
-              flag={flag}
-              id={cardId(i)}
-              selected={selected === i}
-              channelLabels={flag.channels.map((id) => channelNames.get(id) ?? id)}
-              onSelect={() => setSelected(i)}
-              onLocate={flag.quotedText ? () => locate(i) : undefined}
-            />
-          ))}
-        </ul>
+        <section aria-label="Rule cards" className="space-y-3">
+          <div className="flex flex-wrap gap-2 print:hidden" role="group" aria-label="Filter rule cards">
+            {FILTERS.map((f) => {
+              const count = report.flags.filter(f.test).length;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  aria-pressed={filter === f.id}
+                  onClick={() => setFilter(f.id)}
+                  disabled={count === 0 && f.id !== "all"}
+                  className={`rounded-full border px-3 py-1 text-sm font-semibold disabled:opacity-40 ${
+                    filter === f.id ? "border-ink bg-ink text-page" : "border-line bg-surface text-ink hover:bg-raised"
+                  }`}
+                >
+                  {f.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+          {applied.size > 0 && (
+            <p className="rounded-lg border border-pass/50 bg-pass-soft p-2.5 text-sm text-pass print:hidden" role="status">
+              {applied.size} fix{applied.size > 1 ? "es" : ""} applied to your draft on the left. Click Check to re-run the audit.
+            </p>
+          )}
+          {applyMiss !== null && (
+            <p className="rounded-lg border border-medium/50 bg-medium-soft p-2.5 text-sm text-medium print:hidden" role="alert">
+              That phrase is no longer in your draft, so the fix couldn&apos;t be applied. Click Check to refresh the report.
+            </p>
+          )}
+          <ul className="space-y-3">
+            {report.flags.map((flag, i) => (
+              <FlagCard
+                key={`${flag.ruleId}-${flag.quotedText}-${i}`}
+                flag={flag}
+                id={cardId(i)}
+                selected={selected === i}
+                hidden={!FILTERS.find((f) => f.id === filter)!.test(flag)}
+                applied={applied.has(i)}
+                channelLabels={flag.channels.map((id) => channelNames.get(id) ?? id)}
+                onSelect={() => setSelected(i)}
+                onLocate={flag.quotedText ? () => locate(i) : undefined}
+                onApply={onApply && flag.suggestedRewrite && !flag.confirmOnly ? () => apply(i, flag) : undefined}
+              />
+            ))}
+          </ul>
+        </section>
       )}
 
       {report.droppedAiFlags > 0 && (
@@ -272,7 +422,7 @@ export default function Report({
         </p>
       )}
 
-      <VisualChecklist items={report.visualChecklist} visual={report.visual} />
+      <VisualChecklist report={report} />
 
       {noIssues.length > 0 && (
         <section>

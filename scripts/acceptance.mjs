@@ -16,12 +16,12 @@ function expect(name, ok, detail = "") {
   if (!ok) failures++;
 }
 
-async function postCheck({ text = "", market = "us", channels = [], rejection = "" }) {
+async function postCheck({ text = "", market = "us", channels = [], rejection = "", packType = "single", dimensions = null }) {
   const started = Date.now();
   const res = await fetch(`${BASE}/api/check`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, market, channels, rejection }),
+    body: JSON.stringify({ text, market, channels, rejection, packType, dimensions }),
   });
   return { http: res.status, body: await res.json(), seconds: (Date.now() - started) / 1000 };
 }
@@ -80,7 +80,7 @@ const report = runs[0].body.report;
 expect("whey protein concentrate flagged as undeclared milk (HIGH)", quotesFor(report, "US-FDA-ALG-001").includes("whey protein concentrate"));
 // US law accepts "almonds" in the ingredient list as the declaration, so it only gets the LOW "add a Contains: line" advice.
 expect("almonds flagged as missing a Contains line (LOW advice)", quotesFor(report, "US-FDA-ALG-002").includes("almonds"));
-expect("report shows rule pack v0.1", report?.packVersion === "0.1");
+expect("report shows rule pack v0.3", report?.packVersion === "0.3");
 expect("report has a no-issues entry", report?.ruleStatuses.some((r) => r.status === "no_issues"));
 expect('never says "compliant"', !JSON.stringify(runs.map((r) => r.body)).toLowerCase().includes("compliant"));
 expect("allergen line generated in FDA style", report?.allergenStatement === "Contains: Milk, Tree Nuts (Almonds).", report?.allergenStatement);
@@ -183,6 +183,32 @@ expect(
   "Flipkart Minutes: nothing fails, only items to confirm",
   flipkart.every((f) => f.confirmOnly),
   flipkart.map((f) => `${f.ruleId}${f.confirmOnly ? " (confirm)" : ""}`).join(", "),
+);
+
+console.log("\nv0.3: calculators, validators, multi-pack and listing copy");
+const sized = await postCheck({ text: makhana, market: "india", dimensions: { shape: "rect", unit: "cm", width: 12, height: 18 } });
+const sizes = sized.body.report?.printSizes;
+expect("12 × 18 cm pouch → 216 cm², 2 mm numerals", sizes?.area === 216 && sizes.specs[0].minimum.startsWith("2 mm"), sizes?.specs[0].minimum);
+const usSized = await postCheck({ text: LABEL, dimensions: { shape: "rect", unit: "in", width: 4, height: 6 } });
+expect("4 × 6 in box → 24 in², 1/8 in type", usSized.body.report?.printSizes?.specs[0].minimum.startsWith("1/8 in"));
+expect("EAN 8901234567890 passes the check digit (GS1 India)", sized.body.report?.barcodes[0]?.valid && sized.body.report.barcodes[0].prefix === "GS1 India");
+const badNumbers = await postCheck({ text: makhana.replace("11523999000123", "15523999000123").replace("8901234567890", "8901234567891"), market: "india" });
+const badIds = badNumbers.body.report?.flags.map((f) => f.ruleId) ?? [];
+expect("Bad state code and bad barcode check digit are flagged", badIds.includes("IN-FSSAI-LIC-FMT") && badIds.includes("GS1-CHK-001"), badIds.join(", "));
+const additive = await postCheck({ text: makhana.replace("spices, salt", "spices, salt, citric acid"), market: "india" });
+const addFlag = additive.body.report?.flags.find((f) => f.ruleId === "IN-FSSAI-ADD-001");
+expect("Bare citric acid → Acidity regulator (INS 330)", addFlag?.suggestedRewrite === "Acidity regulator (INS 330)");
+const multi = await postCheck({ text: makhana, market: "india", packType: "multi" });
+expect("Multi-pack mode asks for the N × quantity declaration", multi.body.report?.flags.some((f) => f.ruleId === "IN-LM-MULTI-001"));
+const listing = await fetch(`${BASE}/api/listing`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ labelText: LABEL, market: "us", productName: "protein bar", flaggedClaims: ["helps manage diabetes"], avoidWords: [] }),
+}).then((r) => r.json());
+expect(
+  "Listing copy never repeats the diabetes claim",
+  listing.status === "ok" && ![listing.title, ...listing.highlights].some((l) => /diabet/i.test(l)),
+  listing.status === "ok" ? listing.title : listing.message,
 );
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);

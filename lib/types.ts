@@ -1,4 +1,7 @@
-export type Severity = "high" | "medium" | "low";
+import type { BarcodeCheck } from "./gs1";
+import type { PrintSizes } from "./pdp";
+
+export type Severity ="high" | "medium" | "low";
 
 // How a code-checked rule finds its problem in the label text.
 export type RuleMatch =
@@ -16,7 +19,13 @@ export type RuleMatch =
   // "shelf_life": read the declared best-before period and flag it if it is shorter than minDays.
   | { when: "shelf_life"; minDays: number }
   // "confirm": can't be judged from label text; always listed as something to confirm.
-  | { when: "confirm" };
+  | { when: "confirm" }
+  // "fssai_number": the 14-digit FSSAI number's structure (type digit, state code, year, dummy patterns).
+  | { when: "fssai_number" }
+  // "barcode": EAN-13 / UPC-A numbers whose Modulo-10 check digit is wrong.
+  | { when: "barcode" }
+  // "additives": additives in the ingredient list without their functional class and INS number.
+  | { when: "additives" };
 
 // How "Fix all" handles a flag from a code-checked rule.
 export type RuleFix =
@@ -24,6 +33,8 @@ export type RuleFix =
   | { type: "append_line"; line: string }
   // A placeholder the user fills in through Fix all's "Fill missing label facts" form.
   | { type: "fill_in" }
+  // Swap the quoted words for the suggested rewrite, in place (e.g. "lecithin" → "Emulsifier (INS 322(i))").
+  | { type: "replace_text" }
   | { type: "manual" };
 
 export type Source = { label: string; url: string };
@@ -137,12 +148,21 @@ export type RuleStatus = {
   note?: string;
 };
 
+export type PackType = "single" | "multi";
+
 export type Report = {
   market: string;
   packLabel: string;
   packVersion: string;
   category: { id: string; label: string };
+  packType: PackType;
   channels: { id: string; label: string; note?: string }[];
+  // The product name the AI found on the label (checked to be really there), or "".
+  productName: string;
+  // Barcode numbers on the label with their check-digit result.
+  barcodes: BarcodeCheck[];
+  // Minimum print sizes from the pack dimensions, when the user gave them.
+  printSizes: PrintSizes | null;
   visualChecklist: string[];
   visual: VisualFindings | null;
   labelText: string;
@@ -173,6 +193,12 @@ export type CheckResponse =
 
 export type PanelId = "front" | "back" | "nutrition";
 
+// Where vision found an item on an uploaded image: box is [top, left, bottom, right], each 0–1000.
+export type ArtworkItem = "product_name" | "veg_mark" | "fssai_logo" | "net_quantity" | "mrp" | "barcode" | "nutrition_table" | "ingredients";
+export type ArtworkRegion = { file: number; item: ArtworkItem; box: [number, number, number, number] };
+
 export type ReadImageResponse =
-  | { status: "ok"; text: string; panels: Partial<Record<PanelId, string>>; visual: VisualFindings }
+  | { status: "ok"; text: string; panels: Partial<Record<PanelId, string>>; visual: VisualFindings; regions: ArtworkRegion[] }
   | { status: "needs_text" | "error"; message: string };
+
+export type ListingResponse = { status: "ok"; title: string; highlights: string[] } | { status: "needs_text" | "error"; message: string };

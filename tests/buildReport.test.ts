@@ -28,8 +28,8 @@ const report = (labelText: string, aiFlags: Flag[] = [], droppedAiFlags = 0) =>
 describe("buildReport", () => {
   it("shows the pack version and lists unflagged rules as no issues found", () => {
     const r = report("Bar. Ingredients: oats, dates");
-    expect(r.packVersion).toBe("0.1");
-    expect(noIssuesHeading(r.packVersion)).toBe("No issues found against rule pack v0.1");
+    expect(r.packVersion).toBe("0.3");
+    expect(noIssuesHeading(r.packVersion)).toBe("No issues found against rule pack v0.3");
     const status = (id: string) => r.ruleStatuses.find((s) => s.ruleId === id)?.status;
     expect(["US-FDA-DC-001", "US-FDA-ALG-001", "US-FDA-ALG-002"].map(status)).toEqual(["no_issues", "no_issues", "no_issues"]);
   });

@@ -7,16 +7,45 @@ import { sectionLabel } from "@/components/styles";
 import { factFields, factProblem, fillFacts } from "@/lib/fillIn";
 import { fixAll } from "@/lib/fixAll";
 import type { Report } from "@/lib/types";
+import { wordDiff, type DiffPart } from "@/lib/wordDiff";
+
+const DIFF_STYLE = {
+  same: "",
+  removed: "rounded bg-high-soft text-high line-through decoration-high",
+  added: "rounded bg-pass-soft text-pass font-semibold",
+};
+
+function DiffText({ parts, className }: { parts: DiffPart[]; className: string }) {
+  return (
+    <p className={className}>
+      {parts.map((part, i) =>
+        part.change === "same" ? (
+          <span key={i}>{part.text}</span>
+        ) : part.change === "removed" ? (
+          <del key={i} className={DIFF_STYLE.removed}>
+            {part.text}
+          </del>
+        ) : (
+          <ins key={i} className={`no-underline ${DIFF_STYLE.added}`}>
+            {part.text}
+          </ins>
+        ),
+      )}
+    </p>
+  );
+}
 
 // One click applies every suggested fix and shows the corrected label next to the original.
 // Facts only the brand knows (licence number, MRP…) are typed into a small form, never invented.
 export default function FixAllPanel({ report, onRecheck }: { report: Report; onRecheck?: (text: string) => void }) {
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [showChanges, setShowChanges] = useState(true);
+  const options = { needsCentral: report.market === "india" && report.category.id === "imported" };
   const result = fixAll(report.labelText, report.flags, report.allergenStatement);
   const fields = factFields(result.fixedText);
-  const filled = fillFacts(result.fixedText, fields, values);
-  const stillEmpty = fields.filter((f) => !(values[f.token] ?? "").trim() || factProblem(f, values[f.token])).length;
+  const filled = fillFacts(result.fixedText, fields, values, options);
+  const stillEmpty = fields.filter((f) => !(values[f.token] ?? "").trim() || factProblem(f, values[f.token], options)).length;
   const nothingToFix = result.applied.length === 0 && fields.length === 0;
 
   if (!open) {
@@ -32,9 +61,23 @@ export default function FixAllPanel({ report, onRecheck }: { report: Report; onR
     );
   }
 
+  const diff = showChanges ? wordDiff(report.labelText, filled) : null;
+  const boxClass = "whitespace-pre-wrap break-words rounded-xl border bg-surface p-4 leading-8";
+
   return (
     <section id="fix-all" className="space-y-4 rounded-xl border border-pass/40 bg-pass-soft p-4">
-      <h3 className="font-semibold">Before and after</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold">Before and after</h3>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={showChanges}
+            onChange={(e) => setShowChanges(e.target.checked)}
+            className="h-4 w-4 accent-[var(--color-brand)]"
+          />
+          Highlight changes
+        </label>
+      </div>
 
       {fields.length > 0 && (
         <fieldset className="rounded-lg border border-line bg-surface p-4">
@@ -45,7 +88,7 @@ export default function FixAllPanel({ report, onRecheck }: { report: Report; onR
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {fields.map((field) => {
               const id = `fact-${field.token.replace(/\W+/g, "-")}`;
-              const problem = factProblem(field, values[field.token] ?? "");
+              const problem = factProblem(field, values[field.token] ?? "", options);
               return (
                 <div key={field.token}>
                   <label htmlFor={id} className="block text-xs font-semibold">
@@ -55,7 +98,7 @@ export default function FixAllPanel({ report, onRecheck }: { report: Report; onR
                     id={id}
                     value={values[field.token] ?? ""}
                     onChange={(e) => setValues((v) => ({ ...v, [field.token]: e.target.value }))}
-                    inputMode={field.kind === "fssai" ? "numeric" : field.kind === "phone" ? "tel" : field.kind === "email" ? "email" : "text"}
+                    inputMode={field.kind === "fssai" || field.kind === "barcode" ? "numeric" : field.kind === "phone" ? "tel" : field.kind === "email" ? "email" : "text"}
                     aria-invalid={!!problem}
                     aria-describedby={problem ? `${id}-error` : undefined}
                     className="mt-1 w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
@@ -75,14 +118,22 @@ export default function FixAllPanel({ report, onRecheck }: { report: Report; onR
       <div className="grid gap-4 xl:grid-cols-2">
         <div className="min-w-0">
           <p className={`mb-1 ${sectionLabel}`}>Your draft</p>
-          <HighlightedLabel text={report.labelText} flags={report.flags} />
+          {diff ? (
+            <DiffText parts={diff.before} className={`${boxClass} border-line`} />
+          ) : (
+            <HighlightedLabel text={report.labelText} flags={report.flags} />
+          )}
         </div>
         <div className="min-w-0">
           <div className="mb-1 flex items-center justify-between gap-2">
             <p className={sectionLabel}>Fixed draft</p>
             <CopyButton text={filled} label="Copy fixed label" />
           </div>
-          <p className="whitespace-pre-wrap break-words rounded-xl border border-pass/50 bg-surface p-4 leading-8">{filled}</p>
+          {diff ? (
+            <DiffText parts={diff.after} className={`${boxClass} border-pass/50`} />
+          ) : (
+            <p className={`${boxClass} border-pass/50`}>{filled}</p>
+          )}
         </div>
       </div>
 

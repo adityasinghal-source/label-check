@@ -1,0 +1,477 @@
+{
+  "id": "us-fda",
+  "label": "US (FDA)",
+  "version": "0.3",
+  "allergenRuleId": "US-FDA-ALG-001",
+  "allergenAdviceRuleId": "US-FDA-ALG-002",
+  "identityRuleId": "US-FDA-SOI-001",
+  "nutrientBasis": "per serving (reference amount customarily consumed)",
+  "nutrientClaims": [
+    {
+      "claim": "High protein",
+      "pattern": "\\b(?:high|rich|excellent source of)\\s+(?:in\\s+)?protein\\b|\\bprotein[- ]rich\\b",
+      "nutrient": "protein",
+      "op": "min",
+      "value": 10,
+      "unit": "g"
+    },
+    {
+      "claim": "High fiber",
+      "pattern": "\\b(?:high|rich|excellent source of)\\s+(?:in\\s+)?fib(?:er|re)\\b",
+      "nutrient": "fiber",
+      "op": "min",
+      "value": 5.6,
+      "unit": "g"
+    },
+    {
+      "claim": "Low fat",
+      "pattern": "\\blow[- ]fat\\b",
+      "nutrient": "fat",
+      "op": "max",
+      "value": 3,
+      "unit": "g"
+    },
+    {
+      "claim": "Sugar free",
+      "pattern": "\\b(?:sugar[- ]free|zero sugar|no sugar)\\b",
+      "nutrient": "sugar",
+      "op": "lt",
+      "value": 0.5,
+      "unit": "g"
+    },
+    {
+      "claim": "Zero trans fat",
+      "pattern": "\\b(?:zero|0\\s*g|no)\\s+trans[- ]fats?\\b|\\btrans[- ]fat[- ]free\\b",
+      "nutrient": "transFat",
+      "op": "lt",
+      "value": 0.5,
+      "unit": "g"
+    },
+    {
+      "claim": "Low sodium",
+      "pattern": "\\blow[- ]sodium\\b",
+      "nutrient": "sodium",
+      "op": "max",
+      "value": 140,
+      "unit": "mg"
+    }
+  ],
+  "visualChecklist": [
+    "Nutrition Facts panel uses the FDA format: boxed, bold \"Nutrition Facts\" heading, minimum type sizes (21 CFR 101.9(d))",
+    "Net quantity sits in the bottom 30% of the principal display panel, parallel to the base (21 CFR 101.105(f))",
+    "Net quantity type is at least the minimum height for the panel's area (21 CFR 101.105(i))",
+    "Product name (statement of identity) is a principal feature of the front panel, in bold type (21 CFR 101.3)",
+    "Ingredient list, allergen statement and manufacturer details are on the information panel, right of the front panel"
+  ],
+  "rules": [
+    {
+      "id": "US-FDA-DC-001",
+      "name": "Disease claim",
+      "severity": "high",
+      "checkedBy": "ai",
+      "citation": "FD&C Act §201(g)(1); 21 CFR 101.93(g)",
+      "source": {
+        "label": "21 CFR 101.93 (eCFR)",
+        "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-B/part-101/subpart-F/section-101.93"
+      },
+      "verified": true,
+      "aiGuidance": "Flag wording that says or implies the product treats, cures, mitigates, manages or prevents a specific disease or medical condition (or a symptom of one), or that it is meant for people who have one. Foods and supplements that make these claims are regulated as drugs. Flag, for example: \"helps manage diabetes\", \"lowers blood pressure\", \"prevents heart disease\", \"great for diabetics\", \"fights cancer\", \"relieves arthritis pain\". Do NOT flag wording about supporting or maintaining normal, healthy body function that names no disease, condition or symptom. Those are structure/function claims, which this rule does not cover: \"supports healthy blood sugar\", \"supports immunity\", \"builds strong bones\", \"supports heart health\", \"high protein\". Tie-break: if the wording does not name a disease, condition or symptom, and does not say the product is for people who have one, do not flag it."
+    },
+    {
+      "id": "US-FDA-ALG-001",
+      "name": "Major food allergen not declared",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "FD&C Act §403(w) (FALCPA, FASTER Act)",
+      "source": {
+        "label": "21 U.S.C. 343(w) (Cornell LII)",
+        "url": "https://www.law.cornell.edu/uscode/text/21/343"
+      },
+      "verified": true
+    },
+    {
+      "id": "US-FDA-ALG-002",
+      "name": "No \"Contains:\" line (best practice)",
+      "severity": "low",
+      "checkedBy": "code",
+      "citation": "FD&C Act §403(w)(1): an ingredient name that identifies the allergen satisfies the law; a \"Contains:\" statement is the alternative way to declare it",
+      "source": {
+        "label": "21 U.S.C. 343(w) (Cornell LII)",
+        "url": "https://www.law.cornell.edu/uscode/text/21/343"
+      },
+      "verified": true
+    },
+    {
+      "id": "US-FDA-SOI-001",
+      "name": "Product name (statement of identity) missing",
+      "severity": "high",
+      "checkedBy": "ai",
+      "citation": "21 CFR 101.3: the common or usual name of the food on the principal display panel",
+      "source": {
+        "label": "21 CFR 101.3 (eCFR)",
+        "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-B/part-101/subpart-A/section-101.3"
+      },
+      "verified": true,
+      "explanation": "No product name was found. The label must say what the food is, e.g. \"Granola bites\", on the front panel.",
+      "advice": "Add the product's common name to the front panel.",
+      "fix": {
+        "type": "manual"
+      }
+    },
+    {
+      "id": "US-FDA-NET-001",
+      "name": "Net quantity missing (metric and US units)",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "21 CFR 101.105: net quantity of contents in both US customary (oz, fl oz, lb) and metric (g, ml) units",
+      "source": {
+        "label": "21 CFR 101.105 (eCFR)",
+        "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-B/part-101/subpart-G/section-101.105"
+      },
+      "verified": true,
+      "match": {
+        "when": "absent",
+        "regex": "^(?=[\\s\\S]*\\b\\d+(?:\\.\\d+)?\\s*(?:oz|fl\\.?\\s*oz|lbs?)\\b)(?=[\\s\\S]*\\b\\d+(?:\\.\\d+)?\\s*(?:g|kg|ml|l)\\b)"
+      },
+      "explanation": "No net quantity was found in both US customary and metric units, e.g. \"Net wt. 1.4 oz (40 g)\".",
+      "advice": "Add \"Net wt. [oz] oz ([g] g)\" to the bottom of the front panel.",
+      "fix": {
+        "type": "append_line",
+        "line": "Net wt. [ounces] oz ([grams] g)"
+      }
+    },
+    {
+      "id": "US-FDA-ING-001",
+      "name": "Ingredient list missing",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "21 CFR 101.4: ingredients listed by common name in descending order of weight",
+      "source": {
+        "label": "21 CFR 101.4 (eCFR)",
+        "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-B/part-101/subpart-A/section-101.4"
+      },
+      "verified": true,
+      "match": {
+        "when": "absent",
+        "regex": "\\bingredients?\\s*:"
+      },
+      "explanation": "No ingredient list (\"Ingredients: …\") was found. Without it, allergens can't be checked either.",
+      "advice": "Add \"Ingredients:\" followed by every ingredient in descending order by weight.",
+      "fix": {
+        "type": "manual"
+      }
+    },
+    {
+      "id": "US-FDA-NUT-001",
+      "name": "Nutrition Facts missing",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "21 CFR 101.9: Nutrition Facts (or Supplement Facts for dietary supplements, 21 CFR 101.36)",
+      "source": {
+        "label": "21 CFR 101.9 (eCFR)",
+        "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-B/part-101/subpart-A/section-101.9"
+      },
+      "verified": true,
+      "match": {
+        "when": "absent",
+        "regex": "\\b(?:nutrition|supplement)\\s+facts\\b"
+      },
+      "explanation": "No Nutrition Facts (or Supplement Facts) panel was found in the text.",
+      "advice": "Paste the Nutrition Facts panel, or use Structured panels and fill in the Nutrition panel box.",
+      "fix": {
+        "type": "manual"
+      }
+    },
+    {
+      "id": "US-FDA-MFR-001",
+      "name": "Name and place of business missing",
+      "severity": "medium",
+      "checkedBy": "code",
+      "citation": "21 CFR 101.5: name and place of business of the manufacturer, packer or distributor",
+      "source": {
+        "label": "21 CFR 101.5 (eCFR)",
+        "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-B/part-101/subpart-A/section-101.5"
+      },
+      "verified": true,
+      "match": {
+        "when": "absent",
+        "regex": "\\b(?:manufactured|distributed|packed|made|marketed)\\s+(?:for|by)\\b|\\b(?:manufacturer|distributor)\\b"
+      },
+      "explanation": "No manufacturer, packer or distributor name and address was found.",
+      "advice": "Add \"Distributed by: [company], [city], [state] [ZIP]\".",
+      "fix": {
+        "type": "append_line",
+        "line": "Distributed by: [company name, city, state, ZIP]"
+      }
+    },
+    {
+      "id": "US-FDA-PH-001",
+      "name": "Placeholder still on the label",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "21 CFR 101.105 and 101.5: required declarations must state the real values",
+      "source": {
+        "label": "21 CFR part 101 (eCFR)",
+        "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-B/part-101"
+      },
+      "verified": true,
+      "match": {
+        "when": "placeholder"
+      },
+      "explanation": "This is a placeholder, not a real value. A required declaration with a placeholder is still missing.",
+      "advice": "Replace it with the real value (Fix all has a form for this).",
+      "fix": {
+        "type": "manual"
+      }
+    },
+    {
+      "id": "US-FDA-NC-001",
+      "name": "Nutrient claim without a nutrition line",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "21 CFR 101.13: a nutrient content claim needs the nutrient's amount in the Nutrition Facts",
+      "source": {
+        "label": "21 CFR 101.13 (eCFR)",
+        "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-B/part-101/subpart-D/section-101.13"
+      },
+      "verified": true,
+      "match": {
+        "when": "nutrient_backing"
+      },
+      "explanation": "The label makes a nutrient claim, but the nutrition table has no line for that nutrient to back it up.",
+      "advice": "Add the Nutrition Facts with this nutrient's amount per serving, or remove the claim.",
+      "fix": {
+        "type": "manual"
+      }
+    },
+    {
+      "id": "US-FDA-NC-002",
+      "name": "Nutrient claim doesn't meet the FDA threshold",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "21 CFR 101.54 (protein, fiber), 101.60 (sugar), 101.61 (sodium), 101.62 (fat): thresholds per reference amount",
+      "source": {
+        "label": "21 CFR 101.54 (eCFR)",
+        "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-B/part-101/subpart-D/section-101.54"
+      },
+      "verified": true,
+      "match": {
+        "when": "nutrient_threshold"
+      },
+      "explanation": "The nutrition table doesn't support this claim's threshold.",
+      "advice": "Reformulate to meet the threshold, or use a weaker claim (e.g. \"good source of\") or none.",
+      "fix": {
+        "type": "manual"
+      }
+    },
+    {
+      "id": "GS1-CHK-001",
+      "name": "Barcode check digit is wrong",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "GS1 General Specifications: Modulo-10 check digit for EAN-13 and UPC-A (GTIN-13 / GTIN-12)",
+      "source": {
+        "label": "GS1 check digit calculator",
+        "url": "https://www.gs1.org/services/check-digit-calculator"
+      },
+      "verified": true,
+      "match": {
+        "when": "barcode"
+      },
+      "explanation": "A barcode with the wrong check digit won't scan at checkout or at a marketplace warehouse.",
+      "advice": "Copy the GTIN exactly from your GS1 account and regenerate the barcode artwork from it.",
+      "fix": {
+        "type": "manual"
+      }
+    }
+  ],
+  "allergens": [
+    {
+      "name": "Milk",
+      "keywords": [
+        "milk",
+        "whey",
+        "casein",
+        "caseinate",
+        "butter",
+        "buttermilk",
+        "cream",
+        "cheese",
+        "yogurt",
+        "yoghurt",
+        "lactose",
+        "ghee",
+        "lactalbumin",
+        "curd"
+      ],
+      "exclude": [
+        "peanut butter",
+        "cocoa butter",
+        "shea butter",
+        "nut butter",
+        "almond butter",
+        "cashew butter",
+        "almond milk",
+        "oat milk",
+        "soy milk",
+        "rice milk",
+        "coconut milk",
+        "coconut cream",
+        "cream of tartar"
+      ],
+      "declaredBy": [
+        "milk",
+        "dairy"
+      ]
+    },
+    {
+      "name": "Egg",
+      "keywords": [
+        "egg",
+        "albumen",
+        "albumin",
+        "mayonnaise",
+        "meringue"
+      ],
+      "exclude": [
+        "eggplant",
+        "lactalbumin"
+      ],
+      "declaredBy": [
+        "egg"
+      ]
+    },
+    {
+      "name": "Fish",
+      "keywords": [
+        "fish",
+        "anchovy",
+        "anchovies",
+        "salmon",
+        "tuna",
+        "cod",
+        "tilapia",
+        "sardine",
+        "mackerel",
+        "pollock"
+      ],
+      "exclude": [
+        "shellfish"
+      ],
+      "declaredBy": [
+        "fish",
+        "anchovy",
+        "anchovies",
+        "salmon",
+        "tuna",
+        "cod",
+        "tilapia",
+        "sardine",
+        "mackerel",
+        "pollock"
+      ],
+      "nameSpecific": true
+    },
+    {
+      "name": "Crustacean shellfish",
+      "keywords": [
+        "shrimp",
+        "prawn",
+        "crab",
+        "lobster",
+        "crayfish",
+        "krill"
+      ],
+      "declaredBy": [
+        "shellfish",
+        "shrimp",
+        "prawn",
+        "crab",
+        "lobster",
+        "crayfish",
+        "krill"
+      ],
+      "nameSpecific": true
+    },
+    {
+      "name": "Tree nuts",
+      "keywords": [
+        "almond",
+        "cashew",
+        "walnut",
+        "pecan",
+        "pistachio",
+        "hazelnut",
+        "macadamia",
+        "brazil nut",
+        "pine nut"
+      ],
+      "declaredBy": [
+        "almond",
+        "cashew",
+        "walnut",
+        "pecan",
+        "pistachio",
+        "hazelnut",
+        "macadamia",
+        "brazil nut",
+        "pine nut"
+      ],
+      "nameSpecific": true
+    },
+    {
+      "name": "Peanuts",
+      "keywords": [
+        "peanut",
+        "groundnut",
+        "arachis"
+      ],
+      "declaredBy": [
+        "peanut"
+      ]
+    },
+    {
+      "name": "Wheat",
+      "keywords": [
+        "wheat",
+        "semolina",
+        "durum",
+        "spelt",
+        "farro",
+        "farina",
+        "seitan"
+      ],
+      "exclude": [
+        "buckwheat"
+      ],
+      "declaredBy": [
+        "wheat"
+      ]
+    },
+    {
+      "name": "Soy",
+      "keywords": [
+        "soy",
+        "soya",
+        "soybean",
+        "edamame",
+        "tofu"
+      ],
+      "declaredBy": [
+        "soy",
+        "soya",
+        "soybean"
+      ]
+    },
+    {
+      "name": "Sesame",
+      "keywords": [
+        "sesame",
+        "tahini"
+      ],
+      "declaredBy": [
+        "sesame"
+      ]
+    }
+  ]
+}

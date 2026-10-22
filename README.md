@@ -4,7 +4,7 @@
 
 Paste a draft food or supplement label (or upload a photo), choose where you sell (the US, or India and its marketplaces), and get every risky claim, hidden allergen and missing declaration, with the rule it breaks and a fix. If a marketplace has already rejected you, paste the rejection too: ShelfReady explains the likely reason and points to the flags behind it.
 
-> A screening aid, not legal advice. ShelfReady can only say "no issues found against rule pack v0.1". It never says a label is "compliant".
+> A screening aid, not legal advice. ShelfReady can only say "no issues found against rule pack v0.3". It never says a label is "compliant".
 
 ## Features at a glance
 
@@ -17,6 +17,18 @@ Paste a draft food or supplement label (or upload a photo), choose where you sel
 - **Structured panels** (front / back / nutrition) or a single text box, with a character and word count.
 - **Report tools:** a visual print-readiness checklist, two-way links between highlights and rule cards (hover for rule and risk, "Locate in label"), **Export PDF**, **Copy report summary**, and the last 5 checks under **Recent checks**.
 - **Channel matrix** with two views (By issue, with grouped channel pills; By channel, with collapsible cards): no sideways scrolling at 7 channels, down to 375 px wide.
+
+**New in v0.3**
+
+- **Pack dimensions & font calculator.** Enter the front panel size (box, cylinder or a custom area, in cm or in) to get the principal display panel area and the minimum print sizes in the print-readiness checklist. US: net quantity type size by area (21 CFR 101.105(i)). India: net quantity numeral height (Legal Metrology Rule 7) and veg-mark size (FSSAI). The India tables come from secondary sources and are marked Unverified.
+- **FSSAI number structure.** The 14-digit number is checked for its type digit (1 licence, 2 registration), state code (01–38, or 00 for a Central Licence), year and dummy patterns. Imported food must carry a Central Licence (starting 100). There's no check digit, so only FoSCoS can confirm a number is real.
+- **Barcode check digit.** EAN-13 and UPC-A numbers on the label (or typed into the facts form) get the Modulo-10 check and their GS1 prefix (890 = GS1 India, 000–139 = GS1 US).
+- **Additive normalizer (India).** Bare additives such as "citric acid" or "soy lecithin" are flagged with a one-click rewrite to "Acidity regulator (INS 330)" / "Emulsifier (soy lecithin, INS 322(i))".
+- **Multi-pack / combo pack mode** adds the "N units × quantity = total" declaration, one MRP for the pack, and "Not for retail sale separately" for unlabelled inner units (US: 21 CFR 101.105(s)).
+- **Annotated artwork preview.** Uploaded images get numbered pins on the product name, veg mark, FSSAI logo, net quantity, MRP, barcode and nutrition table; amber pins link to the flag still open. Try it with **Try a sample → Sample artwork check (with image)**, which draws a mock pack in the browser.
+- **E-commerce catalog listing pack.** A product title and highlights (AI-written, with any flagged claim removed by code) plus the onboarding attributes read from the label, ready to copy as JSON, CSV or text.
+- **Share link** encodes the inputs into `?state=…`; opening it re-runs the same check. Uploaded images aren't included.
+- **Rule cards:** filter pills (All, High, Medium, Low, Rule check, AI check), **Apply to draft** on each card with a rewrite, and **Highlight changes** in Fix all's before-and-after view (word-level).
 
 **Upload size on Vercel:** Vercel limits a request body to about 4.5 MB, so files near 10 MB work locally but fail when deployed. Compress large photos first.
 
@@ -35,7 +47,7 @@ Paste a draft food or supplement label (or upload a photo), choose where you sel
 | # | What I do | What must happen |
 |---|---|---|
 | 1 | Paste *"High protein bar that helps manage diabetes. Ingredients: oats, whey protein concentrate, dates, almonds"*, choose **United States** | Within **10 seconds**, "helps manage diabetes" is flagged as a **high-severity disease claim**, with the rule ID, its source link and a rewrite I can copy |
-| 2 | Same label, then the granola bites: *"Gluten-free granola bites. Supports healthy blood sugar. Ingredients: rolled oats, peanut butter, honey, natural flavor (contains milk), sea salt"* | Hidden allergens are found: **whey → milk** is flagged HIGH; the milk in *"natural flavor (contains milk)"* goes into the generated "Contains:" line. The report shows the rule-pack version and **"No issues found against rule pack v0.1"** for anything not flagged, and never says "compliant" |
+| 2 | Same label, then the granola bites: *"Gluten-free granola bites. Supports healthy blood sugar. Ingredients: rolled oats, peanut butter, honey, natural flavor (contains milk), sea salt"* | Hidden allergens are found: **whey → milk** is flagged HIGH; the milk in *"natural flavor (contains milk)"* goes into the generated "Contains:" line. The report shows the rule-pack version and **"No issues found against rule pack v0.3"** for anything not flagged, and never says "compliant" |
 | 3 | Submit empty text, a pasta recipe, random words, or an unreadable image | A plain message asks me to paste label text. No flags are invented and nothing crashes. AI flags without a valid rule ID are dropped |
 | 4 | The granola label, **India + Blinkit**, with the rejection *"Listing rejected: label information incomplete"* | The results open with a **"Likely reason for rejection"** card that links to the flags behind it (missing FSSAI licence number, net quantity, MRP, best-before, manufacturer) and gives the fix |
 
@@ -92,7 +104,7 @@ A **market** pack has the rules that always apply. Each **channel** is a thin la
 
 **The channel matrix** has each issue as a row and each selected channel as a column. A cell is **fail** only for a verified, high-severity label problem. Unverified rules, lower risks and "confirm with the channel" items are only ever **warnings**, so a guess never reads as fact. Shelf life is read from the label ("Best before 2 months from manufacture"), so a 2-month product fails Amazon India's 3-month minimum but passes channels without one.
 
-Rule files: `lib/rulepacks/us-fda-v0.1.json`, `lib/rulepacks/fssai-v0.1.json`, `lib/rulepacks/channels-v0.1.json`. Adding a channel means adding an entry to `channels-v0.1.json`.
+Rule files: `lib/rulepacks/us-fda-v0.3.json`, `lib/rulepacks/fssai-v0.3.json`, `lib/rulepacks/categories-v0.3.json` (categories and multi-pack rules) and `lib/rulepacks/channels-v0.3.json`. Adding a channel means adding an entry to `channels-v0.3.json`. Click the **Rule packs v0.3** badge in the app to see every rule ID covered.
 
 ---
 
@@ -184,7 +196,10 @@ The acceptance tests against the running app. It uses the real AI and costs a fr
 |---|---|
 | `app/page.tsx` | The one screen: header, input panel, results |
 | `app/api/check/route.ts` | One check: input checks → code rules → AI (claims + rejection, in parallel) → report |
-| `app/api/read-image/route.ts` | Photo → label text |
+| `app/api/read-image/route.ts` | Photo → label text, symbols and where each item sits |
+| `app/api/listing/route.ts` | Catalogue title and highlights for the listing pack |
+| `lib/pdp.ts`, `lib/fssaiNumber.ts`, `lib/gs1.ts`, `lib/additives.ts` | Print-size calculator, FSSAI number, barcode and additive checks |
+| `lib/listing.ts`, `lib/shareState.ts`, `lib/wordDiff.ts`, `lib/sampleArtwork.ts` | Listing attributes, share links, word diff, the mock artwork sample |
 | `lib/ai.ts` | The only file that talks to the AI |
 | `lib/rulepacks/` | Market packs and channel layers (JSON), and how they combine |
 | `lib/allergens.ts`, `lib/codeRules.ts`, `lib/shelfLife.ts`, `lib/validateFlags.ts` | Plain-code checks |
