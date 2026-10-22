@@ -7,7 +7,9 @@ export type Readiness = {
 };
 
 // The verdict shown above the detail. It never says "compliant": at best, no issues were found.
-export function readiness(flags: Flag[], packVersion: string): Readiness {
+export function readiness(allFlags: Flag[], packVersion: string): Readiness {
+  // Things to confirm with a channel aren't label problems, so they don't count here.
+  const flags = allFlags.filter((f) => !f.confirmOnly);
   const high = flags.filter((f) => f.severity === "high").length;
   const medium = flags.filter((f) => f.severity === "medium").length;
   const low = flags.filter((f) => f.severity === "low").length;

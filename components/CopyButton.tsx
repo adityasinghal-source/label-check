@@ -25,8 +25,9 @@ export default function CopyButton({ text, label = "Copy" }: { text: string; lab
 
   return (
     <button
+      type="button"
       onClick={copy}
-      className="shrink-0 rounded border border-gray-400 bg-white px-2 py-1 text-xs text-gray-800 hover:bg-gray-100"
+      className="shrink-0 rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink hover:bg-raised"
     >
       {state === "copied" ? "Copied" : state === "failed" ? "Blocked: select the text" : label}
     </button>

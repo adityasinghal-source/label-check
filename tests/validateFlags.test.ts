@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getRulePack } from "../lib/rulepacks";
+import { getMarket } from "../lib/rulepacks";
 import { validateFlags } from "../lib/validateFlags";
 
-const us = getRulePack("us-fda")!;
+const us = getMarket("us")!.pack;
 const LABEL = "High protein bar that helps manage diabetes. Ingredients: oats, whey protein concentrate";
 const good = {
   rule_id: "US-FDA-DC-001",

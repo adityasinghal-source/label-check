@@ -16,7 +16,9 @@ const withPeriod = (s: string) => (/[.!?]$/.test(s.trim()) ? s.trim() : `${s.tri
 // 1. sentence rewrites (AI) and sentence removals (channel rules); a rewrite beats a removal
 // 2. the allergen "Contains:" line, replacing any existing one
 // 3. lines a channel needs added, such as the FSSAI licence number
-export function fixAll(text: string, flags: Flag[], allergenStatement: string | null): FixResult {
+export function fixAll(text: string, allFlags: Flag[], allergenStatement: string | null): FixResult {
+  // Things to confirm with a channel can't be fixed on the label.
+  const flags = allFlags.filter((f) => !f.confirmOnly);
   const applied: string[] = [];
   const needsYou: Flag[] = [];
 

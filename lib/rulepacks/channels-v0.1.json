@@ -1,0 +1,189 @@
+{
+  "version": "0.1",
+  "online": {
+    "india": [
+      {
+        "id": "IN-ECOM-001",
+        "name": "Shelf life left at delivery (online sales)",
+        "severity": "medium",
+        "checkedBy": "code",
+        "citation": "FSSAI advisory to e-commerce food businesses, Nov 2024: at least 30% of shelf life or 45 days before expiry at delivery",
+        "source": { "label": "FSSAI advisory, reported by All India Radio (NewsOnAir)", "url": "https://www.newsonair.gov.in/fssai-directs-e-commerce-fbos-to-ensure-minimum-30-shelf-life-for-delivered-products-to-enhance-food-safety-standards" },
+        "verified": true,
+        "match": { "when": "confirm" },
+        "explanation": "Food sold online in India must reach the customer with at least 30% of its shelf life, or 45 days, left before expiry. This depends on your stock rotation, not the label.",
+        "advice": "Plan dispatch so every order arrives with at least 30% of shelf life or 45 days left."
+      }
+    ]
+  },
+  "channels": [
+    {
+      "id": "amazon-us",
+      "label": "Amazon (US)",
+      "market": "us",
+      "rules": [
+        {
+          "id": "AMZ-US-001",
+          "name": "Blood sugar or diabetes wording",
+          "severity": "medium",
+          "checkedBy": "code",
+          "citation": "Amazon policy on diabetes-related products (products marketed as diabetes, glucose or sugar treatments need FDA approval), as quoted in a Seller Central forum thread; compliance guides report automated review treats \"blood sugar\" as a high-sensitivity term",
+          "source": { "label": "Seller Central forum thread", "url": "https://sellercentral.amazon.com/seller-forums/discussions/t/a334fd96-60ec-472e-b6d9-e83f1729bb33" },
+          "verified": false,
+          "match": {
+            "when": "present",
+            "words": ["blood sugar", "blood glucose", "glucose", "diabetes", "diabetic", "insulin", "glycemic", "glycaemic", "A1C"]
+          },
+          "explanation": "Amazon's automated review flags blood-sugar, glucose and diabetes wording on food and supplement listings, even when the FDA would accept it as a structure/function claim.",
+          "advice": "For Amazon, remove this sentence, or keep qualified wording (\"…blood sugar levels already within a normal range\") and have documentation ready for an appeal.",
+          "fix": { "type": "remove_sentence" }
+        }
+      ]
+    },
+    {
+      "id": "amazon-in",
+      "label": "Amazon India",
+      "market": "india",
+      "rules": [
+        {
+          "id": "AMZ-IN-001",
+          "name": "Shelf life too short for Amazon.in",
+          "severity": "high",
+          "checkedBy": "code",
+          "citation": "Amazon.in Grocery & Gourmet Foods Listing Policy: minimum shelf life of 3 months (seller-fulfilled) or 5 months (Fulfilled by Amazon)",
+          "source": { "label": "Amazon.in Grocery & Gourmet Foods Listing Policy (PDF)", "url": "https://m.media-amazon.com/images/G/31/rainer/Grocery_and_Gourmet_Food_Listing_Policy._CB1198675309_.pdf" },
+          "verified": true,
+          "match": { "when": "shelf_life", "minDays": 90 },
+          "explanation": "Amazon.in needs food products to have at least 3 months of shelf life (5 months if Fulfilled by Amazon).",
+          "advice": "Extend the shelf life to at least 3 months (5 for FBA), or sell this product through a channel with a shorter minimum."
+        },
+        {
+          "id": "AMZ-IN-002",
+          "name": "FSSAI licence valid 2+ months, covering this category",
+          "severity": "medium",
+          "checkedBy": "code",
+          "citation": "Amazon.in Grocery & Gourmet Foods Listing Policy: FSSAI licence valid for at least 2 months ahead, with a scope that covers the products listed",
+          "source": { "label": "Amazon.in Grocery & Gourmet Foods Listing Policy (PDF)", "url": "https://m.media-amazon.com/images/G/31/rainer/Grocery_and_Gourmet_Food_Listing_Policy._CB1198675309_.pdf" },
+          "verified": true,
+          "match": { "when": "confirm" },
+          "explanation": "Amazon.in removes listings if the FSSAI licence expires within 2 months or doesn't cover the product category.",
+          "advice": "Check your licence's expiry date and scope before listing."
+        }
+      ]
+    },
+    {
+      "id": "blinkit",
+      "label": "Blinkit",
+      "market": "india",
+      "rules": [
+        {
+          "id": "BLK-001",
+          "name": "Shelf life too short for Blinkit",
+          "severity": "high",
+          "checkedBy": "code",
+          "citation": "Third-party onboarding guides report Blinkit wants 90 to 120 days of shelf life left at warehouse intake",
+          "source": { "label": "Blooprint: quick commerce listing guide", "url": "https://blooprint.in/blog/quick-commerce-listing-guide/" },
+          "verified": false,
+          "match": { "when": "shelf_life", "minDays": 90 },
+          "explanation": "Blinkit is reported to need at least 90 days of shelf life left when stock arrives at its warehouse.",
+          "advice": "Confirm the current threshold with Blinkit; products with under 90 days of total shelf life are likely to be refused."
+        },
+        {
+          "id": "BLK-002",
+          "name": "FSSAI number printed on the pack, not a sticker",
+          "severity": "medium",
+          "checkedBy": "code",
+          "citation": "Third-party onboarding guides report Blinkit holds listings when the FSSAI number is only on a sticker or insert",
+          "source": { "label": "Confetti: Blinkit onboarding documents", "url": "https://confetti.design/blog/blinkit-onboarding-documents-needed" },
+          "verified": false,
+          "match": { "when": "confirm" },
+          "explanation": "Blinkit is reported to check that the FSSAI number is printed on the primary pack, not added as a sticker or insert.",
+          "advice": "Print the FSSAI number on the primary pack."
+        }
+      ]
+    },
+    {
+      "id": "zepto",
+      "label": "Zepto",
+      "market": "india",
+      "rules": [
+        {
+          "id": "ZEP-001",
+          "name": "About 60% shelf life left at intake",
+          "severity": "medium",
+          "checkedBy": "code",
+          "citation": "Third-party onboarding guides report Zepto wants about 60% of total shelf life left at warehouse intake",
+          "source": { "label": "Blooprint: quick commerce listing guide", "url": "https://blooprint.in/blog/quick-commerce-listing-guide/" },
+          "verified": false,
+          "match": { "when": "confirm" },
+          "explanation": "Zepto is reported to need about 60% of the product's total shelf life left when stock arrives. This depends on dispatch timing, not the label.",
+          "advice": "Plan dispatch so stock arrives with about 60% of its shelf life left; confirm the threshold with Zepto."
+        },
+        {
+          "id": "ZEP-002",
+          "name": "GS1 (EAN) barcode on every unit",
+          "severity": "low",
+          "checkedBy": "code",
+          "citation": "Third-party checklists report quick-commerce platforms need a GS1-based EAN barcode on each unit; internal codes and QR codes aren't accepted",
+          "source": { "label": "Confetti: quick commerce readiness checklist", "url": "https://confetti.design/blog/quick-commerce-readiness-checklist" },
+          "verified": false,
+          "match": { "when": "confirm" },
+          "explanation": "Zepto is reported to need a scannable GS1 (EAN) barcode on every unit.",
+          "advice": "Register with GS1 India and print the EAN barcode on each unit."
+        }
+      ]
+    },
+    {
+      "id": "instamart",
+      "label": "Swiggy Instamart",
+      "market": "india",
+      "rules": [
+        {
+          "id": "INS-001",
+          "name": "About 60% shelf life left at intake",
+          "severity": "medium",
+          "checkedBy": "code",
+          "citation": "Third-party onboarding guides report Instamart wants about 60% of total shelf life left at warehouse intake; Instamart doesn't publish its requirements",
+          "source": { "label": "Blooprint: quick commerce listing guide", "url": "https://blooprint.in/blog/quick-commerce-listing-guide/" },
+          "verified": false,
+          "match": { "when": "confirm" },
+          "explanation": "Instamart is reported to need about 60% of the product's total shelf life left when stock arrives.",
+          "advice": "Plan dispatch so stock arrives with about 60% of its shelf life left; confirm the threshold with Instamart."
+        }
+      ]
+    },
+    {
+      "id": "flipkart-minutes",
+      "label": "Flipkart Minutes",
+      "market": "india",
+      "note": "No public channel-specific rules found. Only the FSSAI and Legal Metrology rules are checked.",
+      "rules": []
+    },
+    {
+      "id": "amazon-now",
+      "label": "Amazon Now",
+      "market": "india",
+      "rules": [
+        {
+          "id": "AMZ-NOW-001",
+          "name": "Shelf life too short (assumed Amazon.in policy)",
+          "severity": "high",
+          "checkedBy": "code",
+          "citation": "No public Amazon Now policy found; assumed to follow the Amazon.in Grocery & Gourmet Foods Listing Policy (minimum 3 months of shelf life)",
+          "source": { "label": "Amazon.in Grocery & Gourmet Foods Listing Policy (PDF)", "url": "https://m.media-amazon.com/images/G/31/rainer/Grocery_and_Gourmet_Food_Listing_Policy._CB1198675309_.pdf" },
+          "verified": false,
+          "match": { "when": "shelf_life", "minDays": 90 },
+          "explanation": "Amazon Now is assumed to follow Amazon.in's grocery policy, which needs at least 3 months of shelf life.",
+          "advice": "Confirm Amazon Now's shelf-life minimum with Amazon before listing."
+        }
+      ]
+    },
+    {
+      "id": "bb-now",
+      "label": "BigBasket BB Now",
+      "market": "india",
+      "note": "No public channel-specific rules found. Only the FSSAI and Legal Metrology rules are checked.",
+      "rules": []
+    }
+  ]
+}

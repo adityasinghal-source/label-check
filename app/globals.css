@@ -5,7 +5,52 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Colours are named by purpose, so dark mode only has to swap the values below. */
+@theme {
+  --color-page: #f5f6f3;
+  --color-surface: #ffffff;
+  --color-raised: #eef1ed;
+  --color-ink: #16201b;
+  --color-muted: #5b6660;
+  --color-line: #dce1dc;
+  --color-brand: #0f6b4f;
+  --color-brand-ink: #ffffff;
+  --color-high: #b42318;
+  --color-high-soft: #fdecea;
+  --color-medium: #a5520a;
+  --color-medium-soft: #fdf1dc;
+  --color-low: #1d4ed8;
+  --color-low-soft: #e8eefc;
+  --color-pass: #15803d;
+  --color-pass-soft: #e4f4e9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-page: #0e1311;
+    --color-surface: #151c19;
+    --color-raised: #1c2521;
+    --color-ink: #e5ebe7;
+    --color-muted: #9aa69f;
+    --color-line: #2a3530;
+    --color-brand: #3ccf98;
+    --color-brand-ink: #062a1d;
+    --color-high: #ff8f85;
+    --color-high-soft: #3b1714;
+    --color-medium: #f3b65b;
+    --color-medium-soft: #3a2a10;
+    --color-low: #93b4ff;
+    --color-low-soft: #16233f;
+    --color-pass: #74d69e;
+    --color-pass-soft: #11301f;
+  }
+}
+
+:root {
+  color-scheme: light dark;
+}
+
 body {
-  background: #f9fafb;
-  color: #171717;
+  background: var(--color-page);
+  color: var(--color-ink);
 }

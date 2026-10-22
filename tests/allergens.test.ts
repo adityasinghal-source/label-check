@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { checkAllergens } from "../lib/allergens";
-import { getRulePack } from "../lib/rulepacks";
+import { getMarket } from "../lib/rulepacks";
 
-const us = getRulePack("us-fda")!;
-const fssai = getRulePack("fssai")!;
+const us = getMarket("us")!.pack;
+const fssai = getMarket("india")!.pack;
 const BAR =
   "High protein bar that helps manage diabetes. Ingredients: oats, whey protein concentrate, dates, almonds";
 

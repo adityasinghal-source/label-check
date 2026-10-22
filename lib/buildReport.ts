@@ -1,5 +1,6 @@
 import type { AllergenResult } from "./allergens";
-import type { Flag, Report, RulePack, RuleStatus } from "./types";
+import type { Market } from "./rulepacks";
+import type { Channel, Flag, Report, RuleStatus } from "./types";
 
 // This tool can only say "no issues found against this rule pack", never that a label is compliant.
 export function noCompliant(s: string) {
@@ -9,28 +10,36 @@ export function noCompliant(s: string) {
 const SEVERITY_ORDER = { high: 0, medium: 1, low: 2 };
 
 export function buildReport({
-  pack,
+  market,
+  channels = [],
   labelText,
   aiFlags,
   allergens,
   codeFlags = [],
   droppedAiFlags,
 }: {
-  pack: RulePack;
+  market: Market;
+  channels?: Channel[];
   labelText: string;
   aiFlags: Flag[];
   allergens: AllergenResult;
   codeFlags?: Flag[];
   droppedAiFlags: number;
 }): Report {
+  const pack = market.pack;
+  // Label problems first (by severity), then things to confirm with each channel.
   const flags = [...aiFlags, ...allergens.flags, ...codeFlags]
     .map((f) => ({
       ...f,
       explanation: noCompliant(f.explanation),
       suggestedRewrite: noCompliant(f.suggestedRewrite),
     }))
-    .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+    .sort(
+      (a, b) =>
+        Number(!!a.confirmOnly) - Number(!!b.confirmOnly) || SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
+    );
 
+  // "No issues found" covers the market's own rules; channel rules show in the channel matrix.
   const ruleStatuses: RuleStatus[] = [];
   for (const rule of pack.rules) {
     const base = { ruleId: rule.id, ruleName: rule.name };
@@ -47,10 +56,10 @@ export function buildReport({
   }
 
   return {
-    packId: pack.id,
+    market: market.id,
     packLabel: pack.label,
     packVersion: pack.version,
-    basedOn: pack.basedOn,
+    channels: channels.map((c) => ({ id: c.id, label: c.label, note: c.note })),
     labelText,
     flags,
     ruleStatuses,

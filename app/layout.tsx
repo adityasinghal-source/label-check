@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Label Check",
-  description: "Check label claims and allergen statements against a market's rule pack before printing.",
+  title: "ShelfReady",
+  description: "Catch label problems before you print, for every market and channel you sell on.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

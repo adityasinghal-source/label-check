@@ -10,6 +10,8 @@
       "severity": "high",
       "checkedBy": "ai",
       "citation": "Food Safety and Standards Act, 2006; FSS (Advertising and Claims) Regulations, 2018",
+      "source": { "label": "FSSAI regulations", "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php" },
+      "verified": true,
       "aiGuidance": "Flag wording that says or implies the food prevents, treats, cures, manages or alleviates a specific disease or medical condition (or a symptom of one), or that it is meant for people who have one. Food labels in India may not make such claims. Flag, for example: \"helps manage diabetes\", \"controls blood pressure\", \"prevents heart disease\", \"good for diabetics\", \"cures joint pain\". Do NOT flag wording about supporting normal, healthy body function that names no disease, condition or symptom: \"supports healthy blood sugar\", \"supports immunity\", \"builds strong bones\", \"high protein\". Tie-break: if the wording does not name a disease, condition or symptom, and does not say the food is for people who have one, do not flag it."
     },
     {
@@ -17,7 +19,100 @@
       "name": "Allergen not declared",
       "severity": "high",
       "checkedBy": "code",
-      "citation": "FSS (Labelling and Display) Regulations, 2020 (declaration of food allergens)"
+      "citation": "FSS (Labelling and Display) Regulations, 2020 (declaration of food allergens)",
+      "source": { "label": "FSSAI regulations", "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php" },
+      "verified": true
+    },
+    {
+      "id": "IN-FSSAI-LIC",
+      "name": "FSSAI licence number missing",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "FSS (Labelling and Display) Regulations, 2020: FSSAI logo and licence number on the label",
+      "source": { "label": "FSSAI regulations", "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php" },
+      "verified": true,
+      "match": { "when": "absent", "regex": "fssai[^\\n]{0,40}?\\d{14}" },
+      "explanation": "No 14-digit FSSAI licence number was found. Every packaged food label in India needs the FSSAI logo and licence number, printed on the pack (not a sticker).",
+      "advice": "Print your 14-digit FSSAI licence number next to the FSSAI logo.",
+      "fix": { "type": "append_line", "line": "FSSAI Lic. No.: [14-digit licence number]" }
+    },
+    {
+      "id": "IN-FSSAI-VEG",
+      "name": "Veg or non-veg mark not mentioned",
+      "severity": "medium",
+      "checkedBy": "code",
+      "citation": "FSS (Labelling and Display) Regulations, 2020: vegetarian / non-vegetarian symbol",
+      "source": { "label": "FSSAI regulations", "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php" },
+      "verified": true,
+      "match": { "when": "absent", "regex": "\\b(?:non[- ]?veg(?:etarian)?|veg(?:etarian)?|green dot|brown dot)\\b" },
+      "explanation": "The label text doesn't mention the veg (green) or non-veg (brown) mark. It's a symbol, so it may be on your artwork already: check that it sits close to the product name.",
+      "advice": "Make sure the green (veg) or brown (non-veg) symbol is printed next to the product name.",
+      "fix": { "type": "manual" }
+    },
+    {
+      "id": "IN-LM-NET",
+      "name": "Net quantity missing",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "Legal Metrology (Packaged Commodities) Rules, 2011, Rule 6: net quantity declaration",
+      "source": { "label": "Legal Metrology (Packaged Commodities) Rules, 2011", "url": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf" },
+      "verified": true,
+      "match": { "when": "absent", "regex": "\\bnet\\s*(?:qty\\.?|quantity|wt\\.?|weight|contents?)?\\s*[:\\-]?\\s*\\d" },
+      "explanation": "No net quantity (for example \"Net quantity: 200 g\") was found. Packaged goods sold in India must declare it.",
+      "advice": "Add the net quantity in standard units, e.g. \"Net quantity: 200 g\".",
+      "fix": { "type": "append_line", "line": "Net quantity: [amount] g" }
+    },
+    {
+      "id": "IN-LM-MRP",
+      "name": "MRP missing",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "Legal Metrology (Packaged Commodities) Rules, 2011, Rule 6: retail sale price (MRP, inclusive of all taxes)",
+      "source": { "label": "Legal Metrology (Packaged Commodities) Rules, 2011", "url": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf" },
+      "verified": true,
+      "match": { "when": "absent", "regex": "\\b(?:m\\.?\\s?r\\.?\\s?p\\b|maximum retail price|max\\.? retail price)" },
+      "explanation": "No MRP was found. Packaged goods sold in India must show the maximum retail price, \"inclusive of all taxes\".",
+      "advice": "Add \"MRP ₹[amount] (incl. of all taxes)\".",
+      "fix": { "type": "append_line", "line": "MRP ₹[amount] (incl. of all taxes)" }
+    },
+    {
+      "id": "IN-LM-DATE",
+      "name": "Best-before or use-by date missing",
+      "severity": "high",
+      "checkedBy": "code",
+      "citation": "FSS (Labelling and Display) Regulations, 2020 and Legal Metrology (Packaged Commodities) Rules, 2011, Rule 6: best before / use by",
+      "source": { "label": "Legal Metrology (Packaged Commodities) Rules, 2011", "url": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf" },
+      "verified": true,
+      "match": { "when": "absent", "regex": "best\\s*before|use\\s*by|expiry|expires|exp\\.\\s*date" },
+      "explanation": "No best-before or use-by date was found. Indian food labels must show it, and online channels use it to check shelf life.",
+      "advice": "Add the best-before period, e.g. \"Best before 6 months from manufacture\".",
+      "fix": { "type": "append_line", "line": "Best before: [number] months from manufacture" }
+    },
+    {
+      "id": "IN-LM-MFR",
+      "name": "Manufacturer name and address missing",
+      "severity": "medium",
+      "checkedBy": "code",
+      "citation": "Legal Metrology (Packaged Commodities) Rules, 2011, Rule 6: name and address of the manufacturer or packer",
+      "source": { "label": "Legal Metrology (Packaged Commodities) Rules, 2011", "url": "https://consumeraffairs.gov.in/public/upload/admin/cmsfiles/whatsnews/Book_on_Legal_Metrology_Packaged_Commodities_Rules,2011_with_all_amendments_whatsnews.pdf" },
+      "verified": true,
+      "match": { "when": "absent", "regex": "\\b(?:manufactured|mfd\\.?|mkd\\.?|marketed|packed)\\s+(?:and\\s+\\w+\\s+)?by\\b|\\bmanufacturer\\b" },
+      "explanation": "No manufacturer, packer or marketer name and address was found.",
+      "advice": "Add \"Manufactured by: [name and full address]\".",
+      "fix": { "type": "append_line", "line": "Manufactured by: [name and full address]" }
+    },
+    {
+      "id": "IN-FSSAI-NAT",
+      "name": "\"Natural\" claim on a multi-ingredient food",
+      "severity": "medium",
+      "checkedBy": "code",
+      "citation": "FSS (Advertising and Claims) Regulations, 2018: use of \"natural\"",
+      "source": { "label": "FSSAI regulations", "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php" },
+      "verified": true,
+      "match": { "when": "present", "regex": "\\b(?:100%\\s*|all[- ])?natural\\b(?!\\s+flavou?rs?)" },
+      "explanation": "\"Natural\" is reserved for single foods with nothing added. A product made from several ingredients may only say \"made from natural ingredients\".",
+      "advice": "Change it to \"made from natural ingredients\", or remove the word.",
+      "fix": { "type": "manual" }
     }
   ],
   "allergens": [

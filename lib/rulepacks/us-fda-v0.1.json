@@ -11,6 +11,8 @@
       "severity": "high",
       "checkedBy": "ai",
       "citation": "FD&C Act §201(g)(1); 21 CFR 101.93(g)",
+      "source": { "label": "21 CFR 101.93 (eCFR)", "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-B/part-101/subpart-F/section-101.93" },
+      "verified": true,
       "aiGuidance": "Flag wording that says or implies the product treats, cures, mitigates, manages or prevents a specific disease or medical condition (or a symptom of one), or that it is meant for people who have one. Foods and supplements that make these claims are regulated as drugs. Flag, for example: \"helps manage diabetes\", \"lowers blood pressure\", \"prevents heart disease\", \"great for diabetics\", \"fights cancer\", \"relieves arthritis pain\". Do NOT flag wording about supporting or maintaining normal, healthy body function that names no disease, condition or symptom. Those are structure/function claims, which this rule does not cover: \"supports healthy blood sugar\", \"supports immunity\", \"builds strong bones\", \"supports heart health\", \"high protein\". Tie-break: if the wording does not name a disease, condition or symptom, and does not say the product is for people who have one, do not flag it."
     },
     {
@@ -18,14 +20,18 @@
       "name": "Major food allergen not declared",
       "severity": "high",
       "checkedBy": "code",
-      "citation": "FD&C Act §403(w) (FALCPA, FASTER Act)"
+      "citation": "FD&C Act §403(w) (FALCPA, FASTER Act)",
+      "source": { "label": "21 U.S.C. 343(w) (US Code, House of Representatives)", "url": "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title21-section343&num=0&edition=prelim" },
+      "verified": true
     },
     {
       "id": "US-FDA-ALG-002",
       "name": "No \"Contains:\" line (best practice)",
       "severity": "low",
       "checkedBy": "code",
-      "citation": "FD&C Act §403(w)(1): an ingredient name that identifies the allergen satisfies the law; a \"Contains:\" statement is the alternative way to declare it"
+      "citation": "FD&C Act §403(w)(1): an ingredient name that identifies the allergen satisfies the law; a \"Contains:\" statement is the alternative way to declare it",
+      "source": { "label": "21 U.S.C. 343(w) (US Code, House of Representatives)", "url": "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title21-section343&num=0&edition=prelim" },
+      "verified": true
     }
   ],
   "allergens": [

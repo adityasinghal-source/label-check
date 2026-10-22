@@ -1,12 +1,15 @@
 import { ingredientsRange, wordPattern } from "./allergens";
 import { sentenceRange } from "./sentences";
-import type { Flag, Rule, RulePack } from "./types";
+import { declaredShelfLife } from "./shelfLife";
+import type { Flag, Rule } from "./types";
 
-function toFlag(rule: Rule, quotedText: string): Flag {
+export function ruleFlag(rule: Rule, quotedText: string, channels: string[], extra: Partial<Flag> = {}): Flag {
   return {
     ruleId: rule.id,
     ruleName: rule.name,
     citation: rule.citation,
+    source: rule.source,
+    verified: rule.verified,
     severity: rule.severity,
     quotedText,
     explanation: rule.explanation ?? "",
@@ -14,12 +17,14 @@ function toFlag(rule: Rule, quotedText: string): Flag {
     advice: rule.advice,
     fix: rule.fix ?? { type: "manual" },
     foundBy: "code",
+    channels,
+    ...extra,
   };
 }
 
-// Channel rules checked by plain code: flag each sentence that uses a listed word ("present"),
-// or flag once when a required item such as a licence number is missing ("absent").
-export function checkCodeRules(labelText: string, pack: RulePack): Flag[] {
+// Rules checked by plain code. `channels` is stamped on every flag: [] for the market's own rules,
+// or the channel IDs the rules belong to.
+export function checkCodeRules(labelText: string, rules: Rule[], channels: string[] = []): Flag[] {
   // Claims live outside the ingredient list, so "glucose syrup" as an ingredient isn't a claim.
   const range = ingredientsRange(labelText);
   const claimText = range
@@ -27,22 +32,41 @@ export function checkCodeRules(labelText: string, pack: RulePack): Flag[] {
     : labelText;
 
   const flags: Flag[] = [];
-  for (const rule of pack.rules) {
-    if (rule.checkedBy !== "code" || !rule.match) continue;
-    const { when, words, regex } = rule.match;
-    const pattern = regex ? new RegExp(regex, "gi") : new RegExp(wordPattern(words ?? []).source, "gi");
+  for (const rule of rules) {
+    const match = rule.match;
+    if (rule.checkedBy !== "code" || !match) continue;
 
-    if (when === "absent") {
-      if (!pattern.test(labelText)) flags.push(toFlag(rule, ""));
-      continue;
-    }
-
-    const seen = new Set<number>();
-    for (const match of claimText.matchAll(pattern)) {
-      const [start, end] = sentenceRange(labelText, match.index, match.index + match[0].length);
-      if (seen.has(start)) continue;
-      seen.add(start);
-      flags.push(toFlag(rule, labelText.slice(start, end).replace(/[.!?]$/, "")));
+    if (match.when === "confirm") {
+      flags.push(ruleFlag(rule, "", channels, { confirmOnly: true, fix: { type: "manual" } }));
+    } else if (match.when === "shelf_life") {
+      const shelfLife = declaredShelfLife(labelText);
+      if (!shelfLife) {
+        flags.push(
+          ruleFlag(rule, "", channels, {
+            confirmOnly: true,
+            fix: { type: "manual" },
+            explanation: `No best-before period was found on the label, so this couldn't be checked. ${rule.explanation ?? ""}`,
+          }),
+        );
+      } else if (shelfLife.days < match.minDays) {
+        flags.push(
+          ruleFlag(rule, shelfLife.phrase, channels, {
+            fix: { type: "manual" },
+            explanation: `The label gives a shelf life of about ${shelfLife.days} days. ${rule.explanation ?? ""}`,
+          }),
+        );
+      }
+    } else if (match.when === "absent") {
+      if (!new RegExp(match.regex, "i").test(labelText)) flags.push(ruleFlag(rule, "", channels));
+    } else {
+      const pattern = match.regex ? new RegExp(match.regex, "gi") : new RegExp(wordPattern(match.words ?? []).source, "gi");
+      const seen = new Set<number>();
+      for (const found of claimText.matchAll(pattern)) {
+        const [start, end] = sentenceRange(labelText, found.index, found.index + found[0].length);
+        if (seen.has(start)) continue;
+        seen.add(start);
+        flags.push(ruleFlag(rule, labelText.slice(start, end).replace(/[.!?]$/, ""), channels));
+      }
     }
   }
   return flags;

@@ -1,10 +1,12 @@
-// Runs the 3 acceptance tests against the running app (npm run dev first).
-// Uses the real AI, so it needs your API key in .env.local and costs a few cents.
+// Runs the acceptance tests against the running app (npm run dev first).
+// Uses the real AI, so it needs your API key in .env.local and costs a fraction of a cent.
 import { crc32, deflateSync } from "node:zlib";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const LABEL =
   "High protein bar that helps manage diabetes. Ingredients: oats, whey protein concentrate, dates, almonds";
+const INPUT_B =
+  "Gluten-free granola bites. Supports healthy blood sugar. Ingredients: rolled oats, peanut butter, honey, natural flavor (contains milk), sea salt";
 const PASTA_RECIPE =
   "Ingredients: 400g spaghetti, 2 cloves garlic, olive oil, parmesan. Boil the pasta for 10 minutes, fry the garlic in oil, toss together and serve.";
 
@@ -14,12 +16,12 @@ function expect(name, ok, detail = "") {
   if (!ok) failures++;
 }
 
-async function postCheck(text, packId = "us-fda") {
+async function postCheck({ text = "", market = "us", channels = [], rejection = "" }) {
   const started = Date.now();
   const res = await fetch(`${BASE}/api/check`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, packId }),
+    body: JSON.stringify({ text, market, channels, rejection }),
   });
   return { http: res.status, body: await res.json(), seconds: (Date.now() - started) / 1000 };
 }
@@ -57,10 +59,11 @@ function blankPng(width = 300, height = 200) {
 
 const asksForLabel = (r) =>
   r.http === 200 && r.body.status === "needs_text" && /paste your label text/i.test(r.body.message) && !r.body.report;
+const quotesFor = (report, ruleId) => report?.flags.filter((f) => f.ruleId === ruleId).map((f) => f.quotedText) ?? [];
 
 console.log(`Testing ${BASE}\n\nTest 1: disease claim flagged within 10 seconds (5 runs)`);
 const runs = [];
-for (let i = 0; i < 5; i++) runs.push(await postCheck(LABEL));
+for (let i = 0; i < 5; i++) runs.push(await postCheck({ text: LABEL }));
 for (const [i, run] of runs.entries()) {
   const flag = run.body.report?.flags.find((f) => f.ruleId === "US-FDA-DC-001");
   expect(
@@ -73,24 +76,18 @@ for (const [i, run] of runs.entries()) {
 
 console.log("\nTest 2: allergens, version, no-issues wording");
 const report = runs[0].body.report;
-const quotesFor = (r, ruleId) => r?.flags.filter((f) => f.ruleId === ruleId).map((f) => f.quotedText) ?? [];
 expect("whey protein concentrate flagged as undeclared milk (HIGH)", quotesFor(report, "US-FDA-ALG-001").includes("whey protein concentrate"));
 // US law accepts "almonds" in the ingredient list as the declaration, so it only gets the LOW "add a Contains: line" advice.
 expect("almonds flagged as missing a Contains line (LOW advice)", quotesFor(report, "US-FDA-ALG-002").includes("almonds"));
 expect("report shows rule pack v0.1", report?.packVersion === "0.1");
 expect("report has a no-issues entry", report?.ruleStatuses.some((r) => r.status === "no_issues"));
 expect('never says "compliant"', !JSON.stringify(runs.map((r) => r.body)).toLowerCase().includes("compliant"));
-expect(
-  "allergen line generated in FDA style",
-  report?.allergenStatement === "Contains: Milk, Tree Nuts (Almonds).",
-  report?.allergenStatement,
-);
+expect("allergen line generated in FDA style", report?.allergenStatement === "Contains: Milk, Tree Nuts (Almonds).", report?.allergenStatement);
+expect("every flag has a source link", report?.flags.every((f) => /^https:\/\//.test(f.source.url)));
 
-console.log("\nConsistency: Input B gets the same verdict every time (5 runs)");
-const INPUT_B =
-  "Gluten-free granola bites. Supports healthy blood sugar. Ingredients: rolled oats, peanut butter, honey, natural flavor (contains milk), sea salt";
+console.log("\nConsistency: the granola label gets the same verdict every time (5 runs, US)");
 for (let i = 1; i <= 5; i++) {
-  const run = await postCheck(INPUT_B);
+  const run = await postCheck({ text: INPUT_B });
   const flags = run.body.report?.flags ?? [];
   const summary = flags.map((f) => `${f.ruleId} "${f.quotedText}"`).join(", ") || run.body.message;
   expect(
@@ -112,7 +109,7 @@ for (const [name, text] of [
   ["pasta instructions", "Boil 200g pasta for 10 minutes, drain, and toss with olive oil and garlic."],
   ["random words", "banana keyboard purple sunset violin"],
 ]) {
-  const r = await postCheck(text);
+  const r = await postCheck({ text });
   expect(name, asksForLabel(r), r.body.message);
 }
 for (const [name, bytes] of [
@@ -123,53 +120,55 @@ for (const [name, bytes] of [
   expect(name, asksForLabel(r), r.body.message);
 }
 
-console.log("\nFSSAI smoke check");
-const fssai = await postCheck(LABEL, "fssai");
-const ids = fssai.body.report?.flags.map((f) => f.ruleId) ?? [];
-expect("only FSSAI rule IDs", ids.length > 0 && ids.every((id) => id.startsWith("FSSAI-")), ids.join(", "));
+console.log("\nTest 4: granola label + Blinkit rejection “Listing rejected: label information incomplete”");
+const t4 = await postCheck({
+  text: INPUT_B,
+  market: "india",
+  channels: ["blinkit"],
+  rejection: "Listing rejected: label information incomplete",
+});
+const ex = t4.body.explanation;
+const t4flags = t4.body.report?.flags ?? [];
+const declarations = ["IN-FSSAI-LIC", "IN-LM-NET", "IN-LM-MRP", "IN-LM-DATE", "IN-LM-MFR"];
+expect("gives a likely reason for rejection", t4.body.status === "ok" && ex?.likelyCause.length > 0, ex?.likelyCause ?? t4.body.message);
+expect(
+  "links the rejection to missing label declarations",
+  ex?.ruleIds.some((id) => declarations.includes(id)),
+  `rule IDs: ${ex?.ruleIds.join(", ")}`,
+);
+expect(
+  "those flags are on the report",
+  ex?.ruleIds.filter((id) => declarations.includes(id)).every((id) => t4flags.some((f) => f.ruleId === id)),
+);
+expect("Blinkit column in the channel matrix", t4.body.report?.channels.some((c) => c.id === "blinkit"));
+expect("fix steps and a resubmission note", ex?.fixSteps.length > 0 && ex?.appealNote.length > 0);
+expect("under 10 seconds", t4.seconds < 10, `${t4.seconds.toFixed(1)} s`);
 
-console.log("\nChannels: the same line can be fine with the FDA but risky on Amazon");
-const amazon = await postCheck(INPUT_B, "amazon-us");
-const amazonFlags = amazon.body.report?.flags ?? [];
+console.log("\nRejection only, no label");
+const onlyRejection = await postCheck({ market: "india", channels: ["blinkit"], rejection: "Listing rejected: label information incomplete" });
 expect(
-  'Amazon flags "Supports healthy blood sugar" (AMZ-US-001)',
-  amazonFlags.some((f) => f.ruleId === "AMZ-US-001" && f.quotedText === "Supports healthy blood sugar"),
-  amazonFlags.map((f) => `${f.ruleId} "${f.quotedText}"`).join(", ") || amazon.body.message,
-);
-expect("Amazon still runs the FDA checks", amazon.body.report?.basedOn === "US (FDA) v0.1");
-const blinkit = await postCheck(LABEL, "blinkit-in");
-expect(
-  "Blinkit flags the missing FSSAI licence number (BLK-IN-001)",
-  blinkit.body.report?.flags.some((f) => f.ruleId === "BLK-IN-001"),
+  "explains the likely cause and asks for the label",
+  onlyRejection.body.status === "ok" && onlyRejection.body.explanation && !onlyRejection.body.report && /label text/i.test(onlyRejection.body.notice ?? ""),
+  onlyRejection.body.notice ?? onlyRejection.body.message,
 );
 
-console.log("\nRejection explainer");
-async function postExplain(rejection, labelText, packId = "amazon-us") {
-  const started = Date.now();
-  const res = await fetch(`${BASE}/api/explain`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ rejection, labelText, packId }),
-  });
-  return { http: res.status, body: await res.json(), seconds: (Date.now() - started) / 1000 };
-}
-const notice =
-  "Your listing has been removed. Reason: this product appears to make prohibited claims. Products marketed for diabetes or blood sugar conditions are not permitted without FDA approval.";
-const explained = await postExplain(notice, INPUT_B);
-const ex = explained.body.explanation;
+console.log("\nChannels: the same label can pass on one channel and fail on another");
+const amazonUs = await postCheck({ text: INPUT_B, channels: ["amazon-us"] });
 expect(
-  "gives a likely cause, fix steps and a note to send",
-  explained.body.status === "ok" && ex.likelyCause.length > 0 && ex.fixSteps.length > 0 && ex.appealNote.length > 0,
-  ex ? `${ex.likelyCause} [rule: ${ex.ruleId ?? "none"}, quote: ${ex.evidenceQuote ?? "none"}]` : explained.body.message,
+  'Amazon US flags "Supports healthy blood sugar" (AMZ-US-001), marked unverified',
+  amazonUs.body.report?.flags.some((f) => f.ruleId === "AMZ-US-001" && f.quotedText === "Supports healthy blood sugar" && !f.verified),
 );
-expect("any rule ID it cites is from the pack", ex ? ex.ruleId === null || ex.ruleId.length > 0 : false);
-expect('explanation never says "compliant"', !JSON.stringify(explained.body).toLowerCase().includes("compliant"));
-expect("under 10 seconds", explained.seconds < 10, `${explained.seconds.toFixed(1)} s`);
-const notANotice = await postExplain("banana keyboard purple sunset violin", "");
+const makhana =
+  "Masala makhana. Veg. Net quantity: 80 g. MRP ₹99 (incl. of all taxes). Best before 2 months from manufacture.\nIngredients: fox nuts, rice bran oil, spices, salt.\nManufactured by: Good Snacks Pvt Ltd, Pune. FSSAI Lic. No. 11523999000123";
+const india = await postCheck({ text: makhana, market: "india", channels: ["amazon-in", "flipkart-minutes"] });
+const shelf = india.body.report?.flags.find((f) => f.ruleId === "AMZ-IN-001");
+expect("2-month shelf life flagged for Amazon India only", shelf && shelf.channels.join() === "amazon-in", shelf?.quotedText);
+// Flipkart Minutes has no public rules of its own; it only gets the market rules and the FSSAI online-sales item to confirm.
+const flipkart = india.body.report?.flags.filter((f) => f.channels.length === 0 || f.channels.includes("flipkart-minutes")) ?? [];
 expect(
-  "random words: asks for the rejection message, no explanation",
-  notANotice.body.status === "needs_text" && !notANotice.body.explanation,
-  notANotice.body.message,
+  "Flipkart Minutes: nothing fails, only items to confirm",
+  flipkart.every((f) => f.confirmOnly),
+  flipkart.map((f) => `${f.ruleId}${f.confirmOnly ? " (confirm)" : ""}`).join(", "),
 );
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);

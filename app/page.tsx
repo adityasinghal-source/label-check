@@ -1,28 +1,45 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import CompareView from "@/components/CompareView";
-import ExplanationCard from "@/components/ExplanationCard";
 import Report from "@/components/Report";
+import { card } from "@/components/styles";
 import { MESSAGES } from "@/lib/messages";
-import { RULE_PACKS } from "@/lib/rulepacks";
-import type { CheckResponse, ExplainResponse, Explanation, ReadImageResponse, Report as ReportData } from "@/lib/types";
+import { CHANNELS, MARKETS } from "@/lib/rulepacks";
+import type { CheckResponse, Explanation, ReadImageResponse, Report as ReportData } from "@/lib/types";
 
-const EXAMPLE_A =
-  "High protein bar that helps manage diabetes. Ingredients: oats, whey protein concentrate, dates, almonds";
-const EXAMPLE_B =
+type Example = { title: string; detail: string; text: string; market: string; channels: string[]; rejection?: string };
+
+const GRANOLA =
   "Gluten-free granola bites. Supports healthy blood sugar. Ingredients: rolled oats, peanut butter, honey, natural flavor (contains milk), sea salt";
-const EXAMPLE_REJECTION =
-  "(Example notice) Your listing has been removed. Reason: this product appears to make prohibited claims. Products marketed for diabetes or blood sugar conditions are not permitted without FDA approval. To reinstate, revise the listing and submit a plan of action.";
 
-type Tab = "check" | "compare" | "explain";
-type Notice = { kind: "info" | "warn"; text: string };
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: "check", label: "Check a label" },
-  { id: "compare", label: "Compare markets" },
-  { id: "explain", label: "Explain a rejection" },
+const EXAMPLES: Example[] = [
+  {
+    title: "Protein bar with a disease claim",
+    detail: "US · FDA",
+    text: "High protein bar that helps manage diabetes. Ingredients: oats, whey protein concentrate, dates, almonds",
+    market: "us",
+    channels: [],
+  },
+  { title: "Granola bites on Amazon", detail: "US · FDA + Amazon", text: GRANOLA, market: "us", channels: ["amazon-us"] },
+  {
+    title: "Granola bites rejected by Blinkit",
+    detail: "India · Blinkit · with a rejection",
+    text: GRANOLA,
+    market: "india",
+    channels: ["blinkit"],
+    rejection: "Listing rejected: label information incomplete",
+  },
+  {
+    title: "Makhana across Indian channels",
+    detail: "India · all 7 channels",
+    text: "Masala makhana. Veg. Net quantity: 80 g. MRP ₹99 (incl. of all taxes). Best before 2 months from manufacture.\nIngredients: fox nuts, rice bran oil, spices, salt.\nManufactured by: Good Snacks Pvt Ltd, Pune. FSSAI Lic. No. 11523999000123",
+    market: "india",
+    channels: CHANNELS.filter((c) => c.market === "india").map((c) => c.id),
+  },
 ];
+
+type Result = { report: ReportData | null; explanation: Explanation | null; notice?: string };
+type Problem = { kind: "input" | "error"; text: string };
 
 async function request<T>(url: string, init: RequestInit): Promise<T | { status: "error"; message: string }> {
   try {
@@ -33,61 +50,118 @@ async function request<T>(url: string, init: RequestInit): Promise<T | { status:
   }
 }
 
-const postJson = (body: object): RequestInit => ({
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(body),
-});
+function LoadingState({ steps }: { steps: string[] }) {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setStep((s) => Math.min(s + 1, steps.length - 1)), 1100);
+    return () => clearInterval(timer);
+  }, [steps.length]);
 
-function PackSelect({ id, label, value, onChange }: { id: string; label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div>
-      <label htmlFor={id} className="block text-sm font-semibold">
-        {label}
-      </label>
-      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 rounded-lg border border-gray-300 bg-white p-2">
-        {RULE_PACKS.map((pack) => (
-          <option key={pack.id} value={pack.id}>
-            {pack.label} v{pack.version}
-          </option>
+    <div className={`${card} p-6`} role="status" aria-live="polite">
+      <p className="font-semibold">Checking your label…</p>
+      <ol className="mt-4 space-y-2 text-sm">
+        {steps.map((label, i) => (
+          <li key={label} className={`flex items-center gap-2 ${i > step ? "text-muted" : ""}`}>
+            {i < step ? (
+              <span className="text-pass" aria-hidden>✓</span>
+            ) : i === step ? (
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-line border-t-brand" aria-hidden />
+            ) : (
+              <span className="h-3.5 w-3.5 rounded-full border-2 border-line" aria-hidden />
+            )}
+            {label}
+          </li>
         ))}
-      </select>
+      </ol>
     </div>
   );
 }
 
-const primaryButton =
-  "rounded-lg bg-gray-900 px-5 py-2 font-semibold text-white hover:bg-gray-700 disabled:opacity-50";
+function EmptyState({ onExample }: { onExample: (e: Example) => void }) {
+  return (
+    <div className={`${card} p-6`}>
+      <p className="text-lg font-semibold">Your report will appear here</p>
+      <p className="mt-1 text-sm text-muted">
+        Paste your label on the left, pick where you sell, and click Check. Or try one of these:
+      </p>
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+        {EXAMPLES.map((example) => (
+          <li key={example.title}>
+            <button
+              type="button"
+              onClick={() => onExample(example)}
+              className="h-full w-full rounded-lg border border-line bg-raised p-3 text-left hover:border-ink"
+            >
+              <span className="block font-medium">{example.title}</span>
+              <span className="block text-xs text-muted">{example.detail}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export default function Home() {
-  const [tab, setTab] = useState<Tab>("check");
   const [text, setText] = useState("");
-  const [packId, setPackId] = useState(RULE_PACKS[0].id);
-  const [compareIds, setCompareIds] = useState<[string, string]>(["us-fda", "fssai"]);
+  const [market, setMarket] = useState("us");
+  const [channels, setChannels] = useState<string[]>([]);
   const [rejection, setRejection] = useState("");
-  const [busy, setBusy] = useState<"check" | "image" | "compare" | "explain" | null>(null);
-  const [notice, setNotice] = useState<Notice | null>(null);
-  const [report, setReport] = useState<ReportData | null>(null);
-  const [comparison, setComparison] = useState<[ReportData, ReportData] | null>(null);
-  const [explanation, setExplanation] = useState<{ explanation: Explanation; packLabel: string } | null>(null);
+  const [rejectionOpen, setRejectionOpen] = useState(false);
+  const [busy, setBusy] = useState<"check" | "image" | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [problem, setProblem] = useState<Problem | null>(null);
+  const [result, setResult] = useState<Result | null>(null);
 
-  // Wake the API routes while the user is still typing, so the first request is fast.
+  // Wake the API routes while the user is still typing, so the first check is fast.
   useEffect(() => {
-    for (const route of ["/api/check", "/api/read-image", "/api/explain"]) fetch(route).catch(() => {});
+    for (const route of ["/api/check", "/api/read-image"]) fetch(route).catch(() => {});
   }, []);
 
-  function switchTab(next: Tab) {
-    setTab(next);
-    setNotice(null);
+  const marketChannels = CHANNELS.filter((c) => c.market === market);
+  const selectedLabels = marketChannels.filter((c) => channels.includes(c.id)).map((c) => c.label);
+
+  const loadingSteps = [
+    ...(text.trim() ? ["Reading your label", "Checking claims with AI", "Checking allergens and label declarations"] : []),
+    ...(text.trim() && selectedLabels.length ? [`Checking ${selectedLabels.length} channel rule set${selectedLabels.length > 1 ? "s" : ""}`] : []),
+    ...(rejection.trim() ? ["Working out the likely reason for rejection"] : []),
+    "Building your report",
+  ];
+
+  function chooseMarket(id: string) {
+    setMarket(id);
+    setChannels([]);
+  }
+
+  function toggleChannel(id: string) {
+    setChannels((current) => (current.includes(id) ? current.filter((c) => c !== id) : [...current, id]));
+  }
+
+  function loadExample(example: Example) {
+    setText(example.text);
+    setMarket(example.market);
+    setChannels(example.channels);
+    setRejection(example.rejection ?? "");
+    setRejectionOpen(!!example.rejection);
+    setProblem(null);
+    setInfo(null);
+    setResult(null);
   }
 
   async function check(labelText = text) {
     setBusy("check");
-    setNotice(null);
-    setReport(null);
-    const result = await request<CheckResponse>("/api/check", postJson({ text: labelText, packId }));
-    if (result.status === "ok") setReport(result.report);
-    else setNotice({ kind: "warn", text: result.message });
+    setProblem(null);
+    setInfo(null);
+    setResult(null);
+    const body = { text: labelText, market, channels, rejection: rejectionOpen ? rejection : "" };
+    const res = await request<CheckResponse>("/api/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.status === "ok") setResult({ report: res.report, explanation: res.explanation, notice: res.notice });
+    else setProblem({ kind: res.status === "needs_text" ? "input" : "error", text: res.message });
     setBusy(null);
   }
 
@@ -97,162 +171,163 @@ export default function Home() {
     check(fixedText);
   }
 
-  async function compare() {
-    setBusy("compare");
-    setNotice(null);
-    setComparison(null);
-    const [left, right] = await Promise.all(
-      compareIds.map((id) => request<CheckResponse>("/api/check", postJson({ text, packId: id }))),
-    );
-    if (left.status === "ok" && right.status === "ok") setComparison([left.report, right.report]);
-    else setNotice({ kind: "warn", text: left.status !== "ok" ? left.message : (right as { message: string }).message });
-    setBusy(null);
-  }
-
-  async function explain() {
-    setBusy("explain");
-    setNotice(null);
-    setExplanation(null);
-    const result = await request<ExplainResponse>("/api/explain", postJson({ rejection, labelText: text, packId }));
-    if (result.status === "ok") setExplanation({ explanation: result.explanation, packLabel: result.packLabel });
-    else setNotice({ kind: "warn", text: result.message });
-    setBusy(null);
-  }
-
   async function readImage(file: File) {
     setBusy("image");
-    setNotice(null);
-    setReport(null);
+    setProblem(null);
+    setInfo(null);
     const form = new FormData();
     form.append("image", file);
-    const result = await request<ReadImageResponse>("/api/read-image", { method: "POST", body: form });
-    if (result.status === "ok") {
-      setText(result.text);
-      setNotice({ kind: "info", text: "We read this text from your photo. Fix any mistakes, then run the check." });
+    const res = await request<ReadImageResponse>("/api/read-image", { method: "POST", body: form });
+    if (res.status === "ok") {
+      setText(res.text);
+      setInfo("We read this text from your photo. Fix any mistakes, then click Check.");
     } else {
-      setNotice({ kind: "warn", text: result.message });
+      setProblem({ kind: res.status === "needs_text" ? "input" : "error", text: res.message });
     }
     setBusy(null);
   }
 
+  const inputClass =
+    "mt-1 w-full rounded-lg border border-line bg-surface p-3 text-ink placeholder:text-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30";
+
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-10">
-      <h1 className="text-2xl font-bold">Label Check</h1>
-      <p className="mt-1 text-gray-600">
-        Find risky claims and undeclared allergens before you print, for each market and sales channel.
-      </p>
-
-      <nav className="mt-6 flex flex-wrap gap-2 border-b border-gray-200" role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            onClick={() => switchTab(t.id)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-semibold ${
-              tab === t.id ? "border-gray-900 text-gray-900" : "border-transparent text-gray-500 hover:text-gray-800"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
-
-      {tab === "explain" && (
-        <div className="mt-6">
-          <label htmlFor="rejection-text" className="block text-sm font-semibold">
-            Rejection message
-          </label>
-          <textarea
-            id="rejection-text"
-            value={rejection}
-            onChange={(e) => setRejection(e.target.value)}
-            rows={4}
-            placeholder="Paste the message from Amazon, a retailer or a regulator…"
-            className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-3 focus:border-gray-500 focus:outline-none"
-          />
-          <button onClick={() => setRejection(EXAMPLE_REJECTION)} className="mt-2 text-sm text-blue-700 underline">
-            Use example rejection
-          </button>
+    <div className="min-h-full">
+      <header className="border-b border-line bg-surface">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand font-bold text-brand-ink" aria-hidden>
+              S
+            </span>
+            <div>
+              <h1 className="text-xl font-bold leading-tight">ShelfReady</h1>
+              <p className="text-sm text-muted">Catch label problems before you print, for every market and channel you sell on.</p>
+            </div>
+          </div>
+          <span className="rounded-full border border-line px-3 py-1 text-xs text-muted">Rule packs v0.1 · not legal advice</span>
         </div>
-      )}
+      </header>
 
-      <label htmlFor="label-text" className="mt-6 block text-sm font-semibold">
-        Label text{tab === "explain" && " (optional: helps find what triggered the rejection)"}
-      </label>
-      <textarea
-        id="label-text"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={tab === "explain" ? 4 : 6}
-        placeholder="Paste your label text here: product name, claims, ingredients…"
-        className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-3 focus:border-gray-500 focus:outline-none"
-      />
+      <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-8">
+        <section className={`${card} h-fit space-y-5 p-5 lg:sticky lg:top-6`} aria-label="Your label">
+          <div>
+            <label htmlFor="label-text" className="block text-sm font-semibold">
+              Label text
+            </label>
+            <textarea
+              id="label-text"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={7}
+              placeholder="Paste your label: product name, claims, ingredients, net quantity, MRP…"
+              className={inputClass}
+            />
+            <label className="mt-2 inline-block cursor-pointer text-sm font-medium text-brand underline underline-offset-2">
+              {busy === "image" ? "Reading photo…" : "Upload a photo instead"}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                disabled={busy !== null}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) readImage(file);
+                }}
+              />
+            </label>
+          </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-3">
-        <button onClick={() => setText(EXAMPLE_A)} className="text-sm text-blue-700 underline">
-          Use example label
-        </button>
-        <button onClick={() => setText(EXAMPLE_B)} className="text-sm text-blue-700 underline">
-          Try granola example
-        </button>
-        <label className="cursor-pointer text-sm text-blue-700 underline">
-          {busy === "image" ? "Reading photo…" : "Upload photo instead"}
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
+          <fieldset>
+            <legend className="text-sm font-semibold">Where do you sell?</legend>
+            <div className="mt-1 grid grid-cols-2 rounded-lg border border-line bg-raised p-1" role="radiogroup">
+              {MARKETS.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={market === m.id}
+                  onClick={() => chooseMarket(m.id)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-semibold ${market === m.id ? "bg-surface shadow-sm" : "text-muted hover:text-ink"}`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-muted">
+              {market === "india" ? "FSSAI and Legal Metrology rules always apply. Add channels:" : "FDA rules always apply. Add channels:"}
+            </p>
+            <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
+              {marketChannels.map((c) => (
+                <label key={c.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={channels.includes(c.id)}
+                    onChange={() => toggleChannel(c.id)}
+                    aria-label={c.label}
+                    className="h-4 w-4 accent-[var(--color-brand)]"
+                  />
+                  {c.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <details
+            open={rejectionOpen}
+            onToggle={(e) => setRejectionOpen((e.target as HTMLDetailsElement).open)}
+            className="rounded-lg border border-line"
+          >
+            <summary className="cursor-pointer px-3 py-2 text-sm font-semibold">Got a rejection? Paste the message</summary>
+            <div className="px-3 pb-3">
+              <textarea
+                id="rejection-text"
+                value={rejection}
+                onChange={(e) => setRejection(e.target.value)}
+                rows={3}
+                placeholder="e.g. “Listing rejected: label information incomplete”"
+                className={inputClass}
+              />
+              <p className="mt-1 text-xs text-muted">We&apos;ll explain the likely reason and point to the flags behind it.</p>
+            </div>
+          </details>
+
+          <button
+            type="button"
+            onClick={() => check()}
             disabled={busy !== null}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (file) readImage(file);
-            }}
-          />
-        </label>
-      </div>
+            className="w-full rounded-lg bg-brand px-5 py-2.5 font-semibold text-brand-ink hover:opacity-90 disabled:opacity-50"
+          >
+            {busy === "check" ? "Checking…" : "Check"}
+          </button>
+        </section>
 
-      <div className="mt-6 flex flex-wrap items-end gap-3">
-        {tab === "compare" ? (
-          <>
-            <PackSelect id="compare-left" label="Market A" value={compareIds[0]} onChange={(v) => setCompareIds([v, compareIds[1]])} />
-            <PackSelect id="compare-right" label="Market B" value={compareIds[1]} onChange={(v) => setCompareIds([compareIds[0], v])} />
-            <button onClick={compare} disabled={busy !== null} className={primaryButton}>
-              {busy === "compare" ? "Comparing…" : "Compare markets"}
-            </button>
-          </>
-        ) : (
-          <>
-            <PackSelect id="rule-pack" label="Rule pack" value={packId} onChange={setPackId} />
-            {tab === "check" ? (
-              <button onClick={() => check()} disabled={busy !== null} className={primaryButton}>
-                {busy === "check" ? "Checking…" : "Check label"}
-              </button>
-            ) : (
-              <button onClick={explain} disabled={busy !== null} className={primaryButton}>
-                {busy === "explain" ? "Explaining…" : "Explain rejection"}
-              </button>
-            )}
-          </>
-        )}
-      </div>
+        <section aria-label="Results" aria-live="polite" className="min-w-0 space-y-4">
+          {info && <p className="rounded-lg border border-low/40 bg-low-soft p-3 text-sm text-low">{info}</p>}
+          {problem && (
+            <div
+              role="alert"
+              className={`rounded-xl border p-4 ${problem.kind === "input" ? "border-medium/40 bg-medium-soft text-medium" : "border-high/40 bg-high-soft text-high"}`}
+            >
+              <p className="font-semibold">{problem.kind === "input" ? "We need a little more" : "Something went wrong"}</p>
+              <p className="mt-1 text-sm">{problem.text}</p>
+              {problem.kind === "error" && (
+                <button type="button" onClick={() => check()} className="mt-2 text-sm font-semibold underline">
+                  Try again
+                </button>
+              )}
+            </div>
+          )}
+          {result?.notice && <p className="rounded-lg border border-low/40 bg-low-soft p-3 text-sm text-low">{result.notice}</p>}
 
-      {notice && (
-        <p
-          role="status"
-          className={`mt-6 rounded-lg p-3 text-sm ${notice.kind === "warn" ? "bg-amber-50 text-amber-900" : "bg-blue-50 text-blue-900"}`}
-        >
-          {notice.text}
-        </p>
-      )}
-
-      <div className="mt-8">
-        {tab === "check" && report && <Report report={report} onRecheck={recheck} />}
-        {tab === "compare" && comparison && <CompareView left={comparison[0]} right={comparison[1]} />}
-        {tab === "explain" && explanation && (
-          <ExplanationCard explanation={explanation.explanation} packLabel={explanation.packLabel} />
-        )}
-      </div>
-    </main>
+          {busy === "check" ? (
+            <LoadingState steps={loadingSteps} />
+          ) : result ? (
+            <Report report={result.report} explanation={result.explanation} onRecheck={recheck} />
+          ) : (
+            !problem && <EmptyState onExample={loadExample} />
+          )}
+        </section>
+      </main>
+    </div>
   );
 }

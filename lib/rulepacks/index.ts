@@ -1,35 +1,51 @@
-import type { RulePack } from "../types";
-import amazonUs from "./amazon-us-v0.1.json";
-import blinkitIn from "./blinkit-in-v0.1.json";
+import type { Channel, Rule, RulePack } from "../types";
+import channelFile from "./channels-v0.1.json";
 import fssai from "./fssai-v0.1.json";
 import usFda from "./us-fda-v0.1.json";
 
-type ChannelPackFile = Pick<RulePack, "id" | "label" | "version" | "rules"> & { extends: string };
+export type Market = { id: string; label: string; pack: RulePack };
 
-const COUNTRY_PACKS = [usFda, fssai] as RulePack[];
-
-// A channel pack is its country pack plus the channel's own rules.
-function withCountry(channel: ChannelPackFile): RulePack {
-  const country = COUNTRY_PACKS.find((p) => p.id === channel.extends)!;
-  return {
-    ...country,
-    id: channel.id,
-    label: channel.label,
-    version: channel.version,
-    extends: country.id,
-    basedOn: `${country.label} v${country.version}`,
-    rules: [...country.rules, ...channel.rules],
-  };
-}
-
-// To add a market or channel, add its JSON file here.
-export const RULE_PACKS: RulePack[] = [
-  COUNTRY_PACKS[0],
-  withCountry(amazonUs as ChannelPackFile),
-  COUNTRY_PACKS[1],
-  withCountry(blinkitIn as ChannelPackFile),
+// A market's own rules (claims, allergens, label declarations) apply to every channel in it.
+export const MARKETS: Market[] = [
+  { id: "us", label: "United States", pack: usFda as RulePack },
+  { id: "india", label: "India", pack: fssai as RulePack },
 ];
 
-export function getRulePack(id: unknown): RulePack | undefined {
-  return RULE_PACKS.find((pack) => pack.id === id);
+// Each channel is a layer of extra rules on top of its market's pack. Add a channel in channels-v0.1.json.
+export const CHANNELS: Channel[] = (channelFile.channels as Omit<Channel, "version">[]).map((c) => ({
+  ...c,
+  version: channelFile.version,
+}));
+
+// Rules that apply whenever a product is sold online in a market, whichever channel.
+const ONLINE_RULES = channelFile.online as Record<string, Rule[]>;
+
+export function getMarket(id: unknown): Market | undefined {
+  return MARKETS.find((m) => m.id === id);
+}
+
+// The selected channels that exist and belong to this market, in display order.
+export function getChannels(marketId: string, ids: unknown): Channel[] {
+  const wanted = Array.isArray(ids) ? ids : [];
+  return CHANNELS.filter((c) => c.market === marketId && wanted.includes(c.id));
+}
+
+export function onlineRules(marketId: string): Rule[] {
+  return ONLINE_RULES[marketId] ?? [];
+}
+
+// Look up any rule by ID, e.g. to name the rules a rejection points to when there is no label.
+export function findRule(id: string): Rule | undefined {
+  return [...MARKETS.flatMap((m) => m.pack.rules), ...Object.values(ONLINE_RULES).flat(), ...CHANNELS.flatMap((c) => c.rules)].find(
+    (r) => r.id === id,
+  );
+}
+
+// Every rule in play for a check: the market, online selling (if any channel), and each channel.
+export function allRules(market: Market, channels: Channel[]): Rule[] {
+  return [
+    ...market.pack.rules,
+    ...(channels.length ? onlineRules(market.id) : []),
+    ...channels.flatMap((c) => c.rules),
+  ];
 }

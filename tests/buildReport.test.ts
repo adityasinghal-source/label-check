@@ -2,24 +2,28 @@ import { describe, expect, it } from "vitest";
 import { checkAllergens } from "../lib/allergens";
 import { buildReport } from "../lib/buildReport";
 import { noIssuesHeading } from "../lib/messages";
-import { getRulePack } from "../lib/rulepacks";
+import { getMarket } from "../lib/rulepacks";
 import type { Flag } from "../lib/types";
 
-const us = getRulePack("us-fda")!;
+const usMarket = getMarket("us")!;
+const us = usMarket.pack;
 const aiFlag: Flag = {
   ruleId: "US-FDA-DC-001",
   ruleName: "Disease claim",
   citation: "x",
+  source: { label: "x", url: "https://example.com" },
+  verified: true,
   severity: "high",
   quotedText: "helps manage diabetes",
   explanation: "Remove this so the label is compliant.",
   suggestedRewrite: "A satisfying high protein bar",
   fix: { type: "rewrite" },
   foundBy: "ai",
+  channels: [],
 };
 
 const report = (labelText: string, aiFlags: Flag[] = [], droppedAiFlags = 0) =>
-  buildReport({ pack: us, labelText, aiFlags, allergens: checkAllergens(labelText, us), droppedAiFlags });
+  buildReport({ market: usMarket, labelText, aiFlags, allergens: checkAllergens(labelText, us), droppedAiFlags });
 
 describe("buildReport", () => {
   it("shows the pack version and lists unflagged rules as no issues found", () => {
@@ -44,10 +48,11 @@ describe("buildReport", () => {
     expect(r.flags.find((f) => f.quotedText === "almonds")?.ruleId).toBe("US-FDA-ALG-002");
   });
 
-  it("sorts flags high to low and carries the label text and allergen line", () => {
+  it("sorts flags high to low, with source links, and carries the label and allergen line", () => {
     const label = "Bar that helps manage diabetes. Ingredients: almonds, whey";
     const r = report(label, [aiFlag]);
     expect(r.flags.map((f) => f.severity)).toEqual(["high", "high", "low"]);
+    expect(r.flags.every((f) => f.source.url.startsWith("https://"))).toBe(true);
     expect(r.labelText).toBe(label);
     expect(r.allergenStatement).toBe("Contains: Milk, Tree Nuts (Almonds).");
   });

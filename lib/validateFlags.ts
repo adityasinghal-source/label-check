@@ -29,11 +29,15 @@ export function validateFlags(aiFlags: AiFlag[], labelText: string, pack: RulePa
       ruleId: rule.id,
       ruleName: rule.name,
       citation: rule.citation,
+      source: rule.source,
+      verified: rule.verified,
       severity: rule.severity,
       quotedText: quote,
       explanation: f.explanation?.trim() ?? "",
       suggestedRewrite: f.suggested_rewrite?.trim() ?? "",
+      fix: { type: "rewrite" },
       foundBy: "ai",
+      channels: [],
     });
   }
 

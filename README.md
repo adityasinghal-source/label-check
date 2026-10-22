@@ -1,18 +1,10 @@
-# Label Check
+# ShelfReady
 
-Check a draft food or supplement label for risky claims and undeclared allergens **before you send it to print**, so you only pay an expert to look at what's actually risky.
+**Catch label problems before you print, for every market and channel you sell on.**
 
-> A screening aid, not legal advice. The tool can only say "no issues found against rule pack v0.1". It never says a label is "compliant".
+Paste a draft food or supplement label (or upload a photo), choose where you sell (the US, or India and its marketplaces), and get every risky claim, hidden allergen and missing declaration, with the rule it breaks and a fix. If a marketplace has already rejected you, paste the rejection too: ShelfReady explains the likely reason and points to the flags behind it.
 
-## What it does
-
-| Tab | Feature |
-|---|---|
-| **Check a label** | A **readiness verdict** first ("Not ready to print: 2 high-risk, 1 low"), the **allergen line** generated from your ingredients ("Contains: Milk, Tree Nuts (Almonds)."), your label with **risky phrases highlighted** (click one to jump to its rule and fix), and **Fix all**, which applies every fix and shows your draft next to the corrected one, ready to copy or re-check |
-| **Compare markets** | One label against two rule packs side by side (e.g. US vs India), with **what has to change for each market** on top |
-| **Explain a rejection** | Paste a vague rejection from Amazon, a retailer or a regulator (plus your label, optionally). Get the **likely cause**, the matching rule, the likely trigger on your label, **how to fix it**, and a note to send with your resubmission |
-
-Rule packs cover **countries** (US FDA, India FSSAI) and **sales channels** (Amazon, Blinkit). A channel pack runs its country's rules plus its own, so the same line, *"Supports healthy blood sugar"*, passes the FDA pack but is flagged on Amazon.
+> A screening aid, not legal advice. ShelfReady can only say "no issues found against rule pack v0.1". It never says a label is "compliant".
 
 ---
 
@@ -24,74 +16,69 @@ Rule packs cover **countries** (US FDA, India FSSAI) and **sales channels** (Ama
 
 **User:** a bootstrapped founder launching a packaged food or supplement product, with no in-house labeling or regulatory person.
 
-## The 3 tests the MVP must pass
+## The tests it must pass
 
 | # | What I do | What must happen |
 |---|---|---|
-| 1 | Paste *"High protein bar that helps manage diabetes. Ingredients: oats, whey protein concentrate, dates, almonds"* and pick the **US (FDA)** rule pack | Within **10 seconds**, "helps manage diabetes" is flagged as a **high-severity disease claim**, with the rule ID and a rewrite I can copy |
-| 2 | Same label | **Whey protein concentrate** is flagged as undeclared **milk** (HIGH), and **almonds** is flagged with its own rule (LOW: no "Contains:" line). The report shows the rule-pack version and says **"No issues found against rule pack v0.1"** for anything not flagged. It never says "compliant" |
-| 3 | Submit empty text, a pasta recipe, random words, or an unreadable image | A plain message asks me to paste label text. No flags are invented and nothing crashes. Any AI flag without a valid rule ID is dropped before I see it |
+| 1 | Paste *"High protein bar that helps manage diabetes. Ingredients: oats, whey protein concentrate, dates, almonds"*, choose **United States** | Within **10 seconds**, "helps manage diabetes" is flagged as a **high-severity disease claim**, with the rule ID, its source link and a rewrite I can copy |
+| 2 | Same label, then the granola bites: *"Gluten-free granola bites. Supports healthy blood sugar. Ingredients: rolled oats, peanut butter, honey, natural flavor (contains milk), sea salt"* | Hidden allergens are found: **whey → milk** is flagged HIGH; the milk in *"natural flavor (contains milk)"* goes into the generated "Contains:" line. The report shows the rule-pack version and **"No issues found against rule pack v0.1"** for anything not flagged, and never says "compliant" |
+| 3 | Submit empty text, a pasta recipe, random words, or an unreadable image | A plain message asks me to paste label text. No flags are invented and nothing crashes. AI flags without a valid rule ID are dropped |
+| 4 | The granola label, **India + Blinkit**, with the rejection *"Listing rejected: label information incomplete"* | The results open with a **"Likely reason for rejection"** card that links to the flags behind it (missing FSSAI licence number, net quantity, MRP, best-before, manufacturer) and gives the fix |
 
-**Why test 2 changed:** the first version flagged "almonds" as HIGH "not declared". Under US law (FALCPA), an ingredient name that identifies the allergen ("almonds", "peanut butter") already counts as the declaration. Only hidden sources like *whey* are truly undeclared. Almonds now get a LOW "best practice" note instead.
+`npm run acceptance` runs all of these against the live app, plus a 5-run consistency check and channel checks.
 
-**Consistency check:** `npm run acceptance` also runs a second label five times and requires the same verdict every time: *"Gluten-free granola bites. Supports healthy blood sugar. Ingredients: rolled oats, peanut butter, honey, natural flavor (contains milk), sea salt"*.
+**Two deliberate interpretations:**
+- Under US law, an ingredient name that identifies the allergen ("almonds", "peanut butter") already counts as declared. Those get a LOW "add a Contains: line" note, not HIGH.
+- "Supports healthy blood sugar" names no disease, so the FDA pack doesn't call it a disease claim. Amazon (US) flags it, because Amazon's review is stricter.
 
 ---
 
 ## Current workflow → future workflow
 
-| | Today (without the tool) | With Label Check |
+| | Today (without ShelfReady) | With ShelfReady |
 |---|---|---|
 | 1 | Write label copy in a doc | Same |
-| 2 | Google the FDA/FSSAI rules and guess which wording is risky | Paste the copy (or upload a photo) and pick the market |
-| 3 | Miss things like "whey" needing a "milk" declaration | Allergen sources are found by a fixed, published list |
-| 4 | Pay a consultant to review **everything** | Get a report in seconds: each risky line, the rule it breaks and a suggested rewrite |
-| 5 | Wait days and repeat after each edit | Fix the flagged lines, re-check instantly, and pay an expert to review **only the flagged items** |
-| 6 | Print | Print with fewer surprises |
+| 2 | Google FDA / FSSAI / Legal Metrology rules and guess | Paste the copy (or a photo), pick the market and channels |
+| 3 | Miss "whey" needing a "milk" declaration, or a missing MRP | Hidden allergens and missing declarations are found by fixed, published lists |
+| 4 | Learn each marketplace's rules from rejections, weeks later | A channel matrix shows the same label passing on one channel and failing on another |
+| 5 | Get a vague rejection and guess what it means | Paste it: the likely reason, the flags behind it, the fix and a resubmission note |
+| 6 | Pay a consultant to review **everything** | Fix everything in one click, re-check, and pay an expert for **only the flagged items** |
 
 ---
 
-## Architecture: Input → AI → Logic → Action → Output
+## How it works: Input → AI → Logic → Action → Output
 
 ```
-INPUT            AI (judgement)            LOGIC (plain code)               ACTION (you)            OUTPUT
-─────            ──────────────            ──────────────────               ────────────            ──────
-Label text  ─┐                             Input checks (empty/short/long)
-             ├─▶ Is this a label?   ─▶     Drop AI flags with bad rule ID   Read each flag          Report:
-Photo ──▶ ───┘   Find disease claims       or quotes not in your text       Copy / edit / ignore    · flags + rule + citation
- (AI reads it,   + write rewrites          Allergen check (keyword lists)   the rewrite             · suggested rewrites
-  you review)                              Severity & citation from pack    Decide what goes        · "No issues found
-Rule pack                                  "Compliant" filter               to an expert              against rule pack v0.1"
-(US FDA / FSSAI)                           Build report                                             · "Not checked" items
+INPUT                 AI (judgement)                LOGIC (plain code)                  ACTION (you)          OUTPUT
+Label text or photo   Is this a label?              Input checks (no AI cost)           Judge each flag       Likely reason for rejection
+Market: US / India    Disease claims + rewrites     Allergen check (published lists)    Copy / edit rewrites  Readiness verdict
+Channels (optional)   Rejection → likely cause      Missing declarations (MRP, net qty) Fix all, re-check     Channel matrix
+Rejection (optional)  Photo → text                  Channel rules, shelf-life maths     Decide what goes      Allergen line
+                                                    Drop AI flags with bad IDs/quotes   to an expert          Highlighted label, flag cards
 ```
 
-1. **Input:** pasted label text or a photo, plus a rule pack: **US (FDA) v0.1** or **India (FSSAI) v0.1**. Plain-code checks reject empty, too-short or too-long text and bad image files before any AI call, so bad input costs nothing.
-2. **AI:** one call decides whether the text is a label and finds disease claims, each with an exact quote, a rule ID and a rewrite. A separate call reads text from a photo. Answers must come back as JSON in a fixed shape, and the app re-checks that shape.
-3. **Logic (plain code):** the rule packs (`lib/rulepacks/*.json`) hold every rule's ID, name, severity and citation. Code checks every AI flag and drops it if the rule ID isn't in the pack or the quote isn't in your text. Code runs the allergen check and builds the report.
-4. **Action (you):** review the photo transcription, judge each flag, copy or ignore rewrites, and decide what an expert should see.
-5. **Output:** the report on one screen. Each flag shows "Found by: AI" or "Found by: rule check", so you know which to trust more.
+**One Check button.** The plain-code checks run first (they're instant). The claim check and the rejection explainer then run at the same time, so adding a rejection doesn't double the wait. Only a rejection with no label gets the likely cause, plus a request for the label to confirm it.
 
-### Rule packs (v0.1, deliberately small)
+### Markets and channels
 
-| Pack | Rule ID | Rule | Checked by |
-|---|---|---|---|
-| US (FDA) | `US-FDA-DC-001` | Disease claim (FD&C Act §201(g)(1); 21 CFR 101.93(g)) | AI |
-| US (FDA) | `US-FDA-ALG-001` | Major food allergen not declared, e.g. "whey" with no mention of milk (FD&C Act §403(w)) | Code |
-| US (FDA) | `US-FDA-ALG-002` | LOW: allergen named only by the ingredient ("almonds"), which is legal but has no "Contains:" line | Code |
-| India (FSSAI) | `FSSAI-DC-001` | Claim to prevent, treat or cure a disease (FSS Act 2006; Advertising & Claims Regs 2018) | AI |
-| India (FSSAI) | `FSSAI-ALG-001` | Allergen not declared, including gluten cereals like **oats** and sulphites (Labelling & Display Regs 2020) | Code |
+A **market** pack has the rules that always apply. Each **channel** is a thin layer of its own rules on top, not a copy. Every rule has an ID, a plain-language name, a source link and a verified/unverified status, all shown in the results.
 
-### Channel packs (v0.1, built on a country pack)
+| Layer | Rules | Status |
+|---|---|---|
+| **United States (FDA)** | Disease claims (AI), undeclared major allergens, "Contains:" best practice | Verified: eCFR, US Code |
+| Amazon (US) | Blood sugar / diabetes wording | **Unverified** (Seller Central forum + compliance guides) |
+| **India (FSSAI + Legal Metrology)**, applies to every Indian channel | Disease claims (AI), allergens, FSSAI licence number, veg/non-veg mark, net quantity, MRP, best-before, manufacturer, "natural" | Verified: FSSAI regulations, Legal Metrology (Packaged Commodities) Rules 2011 |
+| Any Indian online channel | 30% or 45 days of shelf life left at delivery | Verified: FSSAI advisory, Nov 2024 |
+| Amazon India | Minimum 3 months of shelf life (5 for FBA); FSSAI licence valid 2+ months | Verified: Amazon.in Grocery & Gourmet Foods Listing Policy |
+| Blinkit | 90+ days of shelf life at intake; FSSAI number printed, not stickered | **Unverified** (third-party guides) |
+| Zepto | About 60% shelf life at intake; GS1 barcode | **Unverified** (third-party guides) |
+| Swiggy Instamart | About 60% shelf life at intake | **Unverified** (Instamart doesn't publish requirements) |
+| Amazon Now | Assumed to follow Amazon.in's shelf-life minimum | **Unverified** |
+| Flipkart Minutes, BigBasket BB Now | No public channel-specific rules found, so only the India layer applies | Shown in the results |
 
-| Pack | Rule ID | Rule | Checked by |
-|---|---|---|---|
-| US · Amazon (+ US FDA) | `AMZ-US-001` | MEDIUM: blood sugar, glucose or diabetes wording, which Amazon's automated review flags even when the FDA allows it | Code |
-| India · Blinkit (+ FSSAI) | `BLK-IN-001` | HIGH: no FSSAI licence number found (Blinkit holds listings without it on the primary pack) | Code |
-| India · Blinkit (+ FSSAI) | `BLK-IN-002` | MEDIUM: "natural" on a multi-ingredient food (only "made from natural ingredients" is allowed) | Code |
+**The channel matrix** has each issue as a row and each selected channel as a column. A cell is **fail** only for a verified, high-severity label problem. Unverified rules, lower risks and "confirm with the channel" items are only ever **warnings**, so a guess never reads as fact. Shelf life is read from the label ("Best before 2 months from manufacture"), so a 2-month product fails Amazon India's 3-month minimum but passes channels without one.
 
-**Sources for channel rules are second-hand.** The Amazon rule comes from a Seller Central forum post quoting Amazon's policy on diabetes-related products, plus third-party compliance guides. The Blinkit rules come from third-party seller onboarding guides. I found no official Blinkit claims policy. Every citation says "verify", and these should be checked in Seller Central and on Blinkit Seller Hub.
-
-Adding a market or channel means adding one JSON file in `lib/rulepacks/`.
+Rule files: `lib/rulepacks/us-fda-v0.1.json`, `lib/rulepacks/fssai-v0.1.json`, `lib/rulepacks/channels-v0.1.json`. Adding a channel means adding an entry to `channels-v0.1.json`.
 
 ---
 
@@ -101,65 +88,53 @@ Adding a market or channel means adding one JSON file in `lib/rulepacks/`.
 |---|---|
 | **Read text from a photo** | Turning pixels into text needs vision |
 | **Decide "is this a label?"** | A recipe and a label both have "Ingredients:"; keywords can't tell them apart |
-| **Find disease claims and write rewrites** | The same claim can be worded endlessly ("helps manage diabetes", "great for diabetics"), and a good rewrite needs language skill |
-| **Explain a vague rejection** | Rejection messages are free text with no fixed format. Matching one to a likely cause and a fix needs judgement. The rule ID it cites and the quote it points to are checked by code, like flags |
+| **Find disease claims and write rewrites** | The same claim can be worded endlessly, and a good rewrite needs language skill |
+| **Explain a vague rejection** | Rejection messages are free text. Matching one to likely causes needs judgement. The rule IDs and quotes it returns are checked by code |
 
-Channel rules are plain code on purpose. Amazon's own flagging is keyword-based, so a word list predicts it better than AI judgement would. Highlighting, Fix all, the allergen line, the readiness verdict and the market comparison are all plain code too.
-
-**Everything else is plain code**, because it must be exact and give the same answer every time: the input checks, the allergen check (fixed published lists with exceptions like "peanut butter" ≠ milk), rule IDs, severities and citations, checking the AI's flags, the report wording, and the "compliant" filter.
+**Everything else is plain code**, because it must be exact and give the same answer every time: input checks, allergen detection, missing declarations, channel rules, shelf-life maths, rule IDs, severities and sources, checking the AI's answers, the matrix, Fix all and the "compliant" filter.
 
 ## What stays human
 
-- Checking the text the app read from a photo before running the check
-- Deciding whether each flag is right, and whether to use, edit or ignore each rewrite
-- Checking what the tool can't know: the real recipe, cross-contact, where the "Contains:" line sits on the artwork, and anything outside the 2 rules per pack
-- **Having an expert confirm the rule citations.** They were written from general knowledge, and the FSSAI ones especially should be checked against the official text
-- The final decision to print
+- Checking the text read from a photo before running the check
+- Deciding whether each flag is right, and whether to use each rewrite
+- Filling in the [placeholders] that Fix all adds (licence number, MRP…)
+- Confirming the items marked **Confirm** and the rules marked **Unverified** with each channel
+- **Having an expert confirm the rule citations**, then the final decision to print
 
 ## Why these tools
 
 | Tool | Why |
 |---|---|
-| **Next.js** (App Router, TypeScript) | One project for both the screen and the server routes, and it deploys to Vercel with no extra setup |
-| **OpenRouter + Gemini 3.8 Flash** | The plan was the Claude API, but the only key available is an OpenRouter key whose workspace allows only Google models. Gemini 3.8 Flash is fast (about 3 s per check), reads images, supports JSON-schema answers and costs well under a cent per check. All AI code is in one file (`lib/ai.ts`), so switching providers later means changing only that file |
-| **Zod** | One definition of the AI's answer shape, used both to ask for that shape and to check the reply |
-| **Vitest** | Free, fast unit tests for all the plain-code logic, with no AI calls |
-| **Tailwind CSS** | Simple styling without separate CSS files |
+| **Next.js** (App Router, TypeScript) | One project for the screen and the server routes; deploys to Vercel with no extra setup |
+| **OpenRouter + Gemini 3.8 Flash** | The plan was the Claude API, but the available OpenRouter key only allows Google models. Fast (about 3 s), reads images, supports JSON-schema answers, well under a cent per check. All AI code is in `lib/ai.ts` |
+| **Zod** | One definition of each AI answer shape, used to ask for it and to check the reply |
+| **Tailwind CSS** | Styling with colour tokens that switch automatically for dark mode |
+| **Vitest** | Free, fast unit tests for all plain-code logic |
 
 ## Failure cases, and what you see
 
 | What goes wrong | What the app does |
 |---|---|
-| Empty, too-short or no-letters text | "Please paste your label text." (no AI call) |
-| Text over 5,000 characters | "That's too long for one label. Paste just the label text." |
+| Empty, too-short or too-long text | A readable message before any AI call |
 | A recipe, article or random words | "This doesn't look like product label text. Please paste your label text." No flags |
 | Wrong file type, file over 5 MB, corrupt or blank image | "We couldn't read that. Please paste your label text." |
-| The AI invents a quote, or gives a missing or unknown rule ID | Flag dropped, and the screen says "1 AI suggestion was removed…" |
-| The AI writes "compliant" | Replaced by code before you see it |
-| The AI misses a claim | Can't be caught automatically. The report never says "compliant" and lists exactly which rules were checked |
-| The AI flags something harmless, or suggests a weak rewrite | The quote, reason and rule are shown, and rewrites are labelled "AI-written, check before using" |
-| No ingredient list in the text | Allergen rule shown as **"Not checked: no ingredient list found"**, not "no issues" |
-| AI answer slow (no reply in 6 s) | A backup request starts automatically, and whichever answers first wins |
-| AI service down, both attempts fail, or a malformed answer | "The checker couldn't run. Please try again." No partial report |
-| A fix can't be applied automatically (e.g. "natural" on Blinkit) | Fix all lists it under "Still needs you" instead of guessing |
-| Fix all on a channel pack | AI rewrites are told to avoid the words that channel flags. Removal is used only when there's no rewrite |
-| Rejection explainer gets something that isn't a notice | "This doesn't look like a rejection or compliance notice. Paste the message you received." |
-| Rejection explainer cites a rule that isn't in the pack, or a quote not in the label | Dropped by code; the card says no rule in this pack matches |
-| Borderline claims ("supports healthy blood sugar") | Each rule pack spells out what to flag and what not to flag, with a tie-break, so the same text gets the same verdict |
-| First check after starting the app | The page pings both API routes on load, so they're ready before you click |
+| Only a rejection, no label | The likely cause, plus "Paste your label text too, to confirm which parts caused the rejection" |
+| The rejection box holds something that isn't a rejection | The label is still checked, with a note that the rejection was ignored |
+| The AI invents a quote or a rule ID | Dropped by code; the screen says a suggestion was removed |
+| The AI writes "compliant" | Replaced by code |
+| The AI misses a claim | Can't be caught automatically; the report lists exactly which rules were checked |
+| A channel rule has no public source | Shown with an **Unverified** chip, and never as a hard fail |
+| AI answer slow (no reply in 6 s) | A backup request starts automatically; the first answer wins |
+| AI service down | "The checker couldn't run. Please try again." with a Try again button. No partial report |
 | Missing API key | "The checker isn't set up yet. Add your OpenRouter API key to .env.local…" |
-| Browser blocks the clipboard | Copy button says "Blocked: select the text" |
 
-**Known limitations:**
-- The FDA pack doesn't check structure/function claims ("supports healthy blood sugar"), nutrient content claims ("high protein") or "gluten-free" claims. The Amazon pack catches blood sugar wording only.
-- The FSSAI pack still treats a missing "Contains:" line as undeclared, because Indian allergen rules haven't been checked against the official text. The FSSAI allergen line uses the same "Contains:" format as the US for the same reason.
-- Channel rules come from second-hand sources (see above).
+**Known limitations:** the FDA pack doesn't check structure/function, nutrient content or "gluten-free" claims. The veg/non-veg mark is a symbol, so it can only be checked through the words on the label. The FSSAI allergen line uses the US "Contains:" format, because I couldn't verify FSSAI's official format. Quick-commerce rules are mostly unverified, because most of them sit behind seller logins.
 
 ---
 
 ## Run it locally
 
-**You need:** [Node.js](https://nodejs.org) 22 or newer (developed on 24 LTS) and an [OpenRouter API key](https://openrouter.ai/settings/keys) whose workspace allows `google/gemini-3.8-flash`.
+**You need:** [Node.js](https://nodejs.org) 22 or newer and an [OpenRouter API key](https://openrouter.ai/settings/keys) whose workspace allows `google/gemini-3.8-flash`.
 
 ```bash
 git clone https://github.com/adityasinghal-source/label-check.git
@@ -167,21 +142,13 @@ cd label-check
 npm install
 ```
 
-Copy `.env.example` to a new file called `.env.local` and replace `paste-your-key-here` with your OpenRouter key. `.env.local` is git-ignored, so the key is never committed.
+Copy `.env.example` to `.env.local` and replace `paste-your-key-here` with your OpenRouter key. `.env.local` is git-ignored.
 
 ```bash
 npm run dev
 ```
 
-Open http://localhost:3000, click **Use example label**, then **Check label**.
-
-**For a demo or judging,** use the production build instead. It's faster and never pauses to compile:
-
-```bash
-npm run demo
-```
-
-This runs `next build` and then `next start`. Open http://localhost:3000 once the build finishes.
+Open http://localhost:3000 and click one of the examples in the results panel, then **Check**. For a demo, `npm run demo` runs the faster production build.
 
 ### Tests
 
@@ -189,28 +156,24 @@ This runs `next build` and then `next start`. Open http://localhost:3000 once th
 npm test
 ```
 
-Runs the unit tests (free, no AI calls).
+Unit tests: free, no AI calls.
 
 ```bash
 npm run acceptance
 ```
 
-Runs the 3 acceptance tests against the running app (`npm run dev` first). It uses the real AI and costs a fraction of a cent.
+The acceptance tests against the running app. It uses the real AI and costs a fraction of a cent.
 
 ## Project layout
 
 | Path | What it is |
 |---|---|
-| `app/page.tsx` | The one screen |
-| `components/Report.tsx` | Report, flag cards, copy button |
-| `app/api/check/route.ts` | Input checks → AI → logic → report |
+| `app/page.tsx` | The one screen: header, input panel, results |
+| `app/api/check/route.ts` | One check: input checks → code rules → AI (claims + rejection, in parallel) → report |
 | `app/api/read-image/route.ts` | Photo → label text |
 | `lib/ai.ts` | The only file that talks to the AI |
-| `lib/rulepacks/` | Rule packs (US FDA, FSSAI) as JSON |
-| `lib/allergens.ts`, `lib/validateFlags.ts`, `lib/buildReport.ts`, `lib/inputGuard.ts` | Plain-code logic |
-| `lib/codeRules.ts` | Channel rules (Amazon, Blinkit) |
-| `lib/summary.ts`, `lib/highlight.ts`, `lib/fixAll.ts`, `lib/compare.ts` | Readiness verdict, highlighting, Fix all, market comparison |
-| `app/api/explain/route.ts`, `components/ExplanationCard.tsx` | Rejection explainer |
-| `components/CompareView.tsx`, `components/FixAllPanel.tsx`, `components/HighlightedLabel.tsx` | Compare, before/after, highlighted label |
-| `tests/` | Unit tests |
-| `scripts/acceptance.mjs` | The 3 acceptance tests |
+| `lib/rulepacks/` | Market packs and channel layers (JSON), and how they combine |
+| `lib/allergens.ts`, `lib/codeRules.ts`, `lib/shelfLife.ts`, `lib/validateFlags.ts` | Plain-code checks |
+| `lib/buildReport.ts`, `lib/summary.ts`, `lib/matrix.ts`, `lib/highlight.ts`, `lib/fixAll.ts` | Report, verdict, channel matrix, highlights, Fix all |
+| `components/` | Report, rejection card, channel matrix, Fix all, highlighted label |
+| `tests/`, `scripts/acceptance.mjs` | Unit tests and acceptance tests |
