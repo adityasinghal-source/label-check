@@ -25,7 +25,10 @@ export type RuleMatch =
   // "barcode": EAN-13 / UPC-A numbers whose Modulo-10 check digit is wrong.
   | { when: "barcode" }
   // "additives": additives in the ingredient list without their functional class and INS number.
-  | { when: "additives" };
+  | { when: "additives" }
+  // "nutrition_basis": a nutrition table must give values per 100 g / 100 ml, or per pack for a
+  // single-consumption pack (per <net quantity> g counts), and per serve.
+  | { when: "nutrition_basis" };
 
 // How "Fix all" handles a flag from a code-checked rule.
 export type RuleFix =

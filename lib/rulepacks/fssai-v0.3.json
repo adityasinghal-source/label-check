@@ -101,7 +101,7 @@
       "verified": true,
       "match": {
         "when": "absent",
-        "regex": "fssai[^\\n]{0,40}?\\d{14}"
+        "regex": "(?:fssai|\\blic(?:en[cs]e)?\\.?\\s*no)[^\\n]{0,40}?\\d{14}"
       },
       "explanation": "No 14-digit FSSAI licence number was found. Every packaged food label in India needs the FSSAI logo and licence number, printed on the pack (not a sticker).",
       "advice": "Print your 14-digit FSSAI licence number next to the FSSAI logo.",
@@ -342,22 +342,20 @@
     },
     {
       "id": "IN-FSSAI-NUT100",
-      "name": "Nutrition not given per 100 g / 100 ml and per serve",
+      "name": "Nutrition not given per 100 g / 100 ml (or per pack) and per serve",
       "severity": "medium",
       "checkedBy": "code",
-      "citation": "FSS (Labelling and Display) Regulations, 2020: values per 100 g or 100 ml, and per serve with % RDA",
+      "citation": "FSS (Labelling and Display) Regulations, 2020: values per 100 g or 100 ml, or per single consumption pack, and per serve with % RDA",
       "source": {
         "label": "FSSAI regulations",
         "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php"
       },
       "verified": true,
       "match": {
-        "when": "absent",
-        "onlyIf": "\\bnutrition(?:al)?\\s+(?:information|facts|panel|value)|\\benergy\\s*\\(?k?cal",
-        "regex": "^(?=[\\s\\S]*per\\s*100\\s*(?:g|ml))(?=[\\s\\S]*per\\s*serv)"
+        "when": "nutrition_basis"
       },
-      "explanation": "The nutrition table doesn't show both \"per 100 g\" (or 100 ml) and \"per serve\" values.",
-      "advice": "Give each nutrient per 100 g (or 100 ml) and per serve, with % RDA per serve.",
+      "explanation": "The nutrition table doesn't show values per 100 g (or 100 ml, or per pack for a single-serve pack) and per serve.",
+      "advice": "Give each nutrient per 100 g or 100 ml (a single-serve pack may use per pack instead) and per serve, with % RDA per serve.",
       "fix": {
         "type": "manual"
       }
@@ -419,9 +417,9 @@
       "verified": true,
       "match": {
         "when": "absent",
-        "regex": "\\bcountry\\s+of\\s+origin\\b|\\bmade\\s+in\\s+\\w|\\bproduct\\s+of\\s+\\w"
+        "regex": "\\bcountry\\s+of\\s+origin\\b|\\bmade\\s+in\\s+\\w|\\bproduct\\s+of\\s+\\w|\\b(?:manufactured|mfd\\.?|packed|marketed)\\s+(?:and\\s+\\w+\\s+)?by\\b[\\s\\S]{0,400}?\\bindia\\b"
       },
-      "explanation": "No country of origin was found.",
+      "explanation": "No country of origin was found, and no manufacturer address in India. Imported food must say where it was made; for food made in India, the Indian manufacturer address shows it.",
       "advice": "Add \"Country of origin: India\" (or the country it was made in).",
       "fix": {
         "type": "append_line",

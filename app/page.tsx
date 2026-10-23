@@ -362,7 +362,8 @@ export default function Home() {
     setMode("single");
     setText(fixedText);
     window.scrollTo({ top: 0, behavior: "smooth" });
-    check({ ...currentInputs(), text: fixedText });
+    // Same pack, same artwork: what the photo showed (veg mark, barcode) still counts.
+    check({ ...currentInputs(), text: fixedText }, { visual, artwork: artworkNow() });
   }
 
   // "Apply to draft" on one card: that single fix, made in the box (or panel) holding the phrase.
@@ -445,7 +446,9 @@ export default function Home() {
     setPanels(read);
     setVisual(res.visual);
     setRegions(res.regions);
-    setInfo("We read this text from your files. Check each panel and fix any mistakes, then click Check.");
+    setInfo(
+      "We read this text from your files. Check each panel against your artwork, especially numbers (FSSAI licence, barcode, dates), which small print can make hard to read. A “?” marks a digit we couldn't read. Then click Check.",
+    );
     return { panels: read, visual: res.visual, regions: res.regions };
   }
 

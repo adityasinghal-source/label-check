@@ -33,6 +33,19 @@ export function findPlaceholders(text: string): string[] {
   return [...new Set([...text.matchAll(PLACEHOLDER)].map((m) => m[0]))];
 }
 
+const NUTRITION_TABLE = /\bnutrition(?:al)?\s+(?:information|facts|panel|value)|\benergy\s*[-:(]?\s*\(?k?cal/i;
+
+// Per 100 g / 100 ml, or per pack for a single-consumption pack ("per pack", or "per 70 g" when the net
+// quantity is 70 g), plus per serve.
+export function nutritionBasisOk(text: string): boolean {
+  if (!/\bper\s*serv/i.test(text)) return false;
+  if (/\bper\s*100\s*(?:g|ml)\b/i.test(text) || /\bper\s*(?:single\s*)?(?:consumption\s*)?pack\b/i.test(text)) return true;
+  // Only the net quantity's own amounts, e.g. "63 ml/70 g", which may sit on the next line.
+  const net = /\bnet\s*(?:qty\.?|quantity|wt\.?|weight|contents?)\s*[:\-]?\s*((?:\d+(?:\.\d+)?\s*(?:g|ml)\b[\s/,]*)+)/i.exec(text)?.[1] ?? "";
+  const amounts = new Set([...net.matchAll(/(\d+(?:\.\d+)?)\s*(g|ml)\b/gi)].map((m) => `${Number(m[1])}${m[2].toLowerCase()}`));
+  return [...text.matchAll(/\bper\s*(\d+(?:\.\d+)?)\s*(g|ml)\b/gi)].some((m) => amounts.has(`${Number(m[1])}${m[2].toLowerCase()}`));
+}
+
 export type RuleContext = {
   nutrientClaims?: NutrientClaim[];
   nutrientBasis?: string;
@@ -130,9 +143,22 @@ export function checkCodeRules(labelText: string, rules: Rule[], channels: strin
           }),
         );
       }
+    } else if (match.when === "nutrition_basis") {
+      if (NUTRITION_TABLE.test(labelText) && !nutritionBasisOk(labelText)) flags.push(ruleFlag(rule, "", channels));
     } else if (match.when === "absent") {
       const applies = !match.onlyIf || new RegExp(match.onlyIf, "i").test(labelText);
-      if (applies && !new RegExp(match.regex, "i").test(labelText)) flags.push(ruleFlag(rule, "", channels));
+      if (applies && !new RegExp(match.regex, "i").test(labelText)) {
+        // Text can't show a symbol (veg mark, barcode). Without a photo it's something to confirm, not a fault.
+        flags.push(
+          rule.visualKey && !context.visual
+            ? ruleFlag(rule, "", channels, {
+                confirmOnly: true,
+                fix: { type: "manual" },
+                explanation: `${rule.explanation ?? ""} Text can't show a symbol, so confirm it's on the artwork, or upload the artwork to have it checked.`.trim(),
+              })
+            : ruleFlag(rule, "", channels),
+        );
+      }
     } else {
       const pattern = match.regex ? new RegExp(match.regex, "gi") : new RegExp(wordPattern(match.words ?? []).source, "gi");
       const seen = new Set<number>();

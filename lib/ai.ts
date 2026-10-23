@@ -227,7 +227,7 @@ export async function readLabelImages(uploads: Upload[]) {
   ]);
   parts.push({
     type: "text",
-    text: `These are photos or a PDF dieline of one product's packaging. Transcribe all printed text exactly as written, keeping line breaks, sorted into:
+    text: `These are photos or a PDF dieline of one product's packaging. Transcribe all printed text exactly as written, keeping line breaks. Copy every number (licence numbers, barcodes, dates, prices) digit by digit from the artwork; never fill in or guess a digit you can't read: write "?" for it instead. The FSSAI logo is the lower-case word "fssai". Sort the text into:
 - front: the front / principal display panel (product name, claims, net quantity on the front)
 - back: the back / information panels (ingredients, allergens, manufacturer, MRP, dates, licence numbers, barcode numbers)
 - nutrition: the nutrition facts or nutritional information table, line by line

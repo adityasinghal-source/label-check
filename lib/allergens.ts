@@ -57,7 +57,14 @@ export function checkAllergens(labelText: string, pack: RulePack): AllergenResul
   if (!range) return { checked: false, flags: [], clear: [], statement: null };
   const ingredients = labelText.slice(...range);
 
-  const containsLine = /\bcontains\s*:([^\n]*)/i.exec(labelText)?.[1] ?? "";
+  // Every allergen statement counts: "Contains: Milk", "Allergen: Contains Milk.", "Allergen information: milk".
+  // "May contain" is a precaution, not a declaration, so it isn't read here.
+  const containsLine = [
+    ...labelText.matchAll(/\bcontains\b\s*[:\-]?([^\n]*)/gi),
+    ...labelText.matchAll(/\ballergens?(?:\s+(?:information|advice|declaration))?\s*[:\-]([^\n]*)/gi),
+  ]
+    .map((m) => m[1].replace(/\bmay\s+contain\b[^.\n]*/gi, " "))
+    .join(" ");
   const items = splitIngredients(ingredients);
   const rule = pack.rules.find((r) => r.id === pack.allergenRuleId)!;
 

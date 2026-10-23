@@ -50,7 +50,9 @@ export function checkFssaiNumber(raw: string, options: { needsCentral?: boolean;
   return { ok: true, kind: first === "1" ? "licence" : "registration", central, stateCode, year };
 }
 
-// Every 14-digit number printed near the word FSSAI, with where it starts.
+// Every 14-digit number printed after the word FSSAI or "Lic. No.", as written and with spaces removed.
 export function findFssaiNumbers(text: string): { number: string; raw: string }[] {
-  return [...text.matchAll(/fssai[^\n\d]{0,40}?(\d(?:[\s-]?\d){13})(?!\d)/gi)].map((m) => ({ number: m[1].replace(/[\s-]/g, ""), raw: m[1] }));
+  const found = [...text.matchAll(/(?:fssai|\blic(?:en[cs]e)?\.?\s*no)[^\n\d]{0,40}?(\d(?:[\s-]?\d){13})(?!\d)/gi)];
+  const unique = new Map(found.map((m) => [m[1].replace(/[\s-]/g, ""), m[1]]));
+  return [...unique].map(([number, raw]) => ({ number, raw }));
 }
