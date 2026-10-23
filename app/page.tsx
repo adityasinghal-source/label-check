@@ -10,6 +10,7 @@ import { fixAll } from "@/lib/fixAll";
 import { historySnapshot, NO_HISTORY, saveToHistory, subscribeHistory, type HistoryEntry } from "@/lib/history";
 import { MESSAGES } from "@/lib/messages";
 import { CATEGORIES, CHANNELS, MARKETS, PACK_TYPES } from "@/lib/rulepacks";
+import { pdfFirstPageImage } from "@/lib/pdfPreview";
 import { sampleArtworkFile } from "@/lib/sampleArtwork";
 import { decodeState, encodeState, type SharedInputs } from "@/lib/shareState";
 import { readiness } from "@/lib/summary";
@@ -73,6 +74,7 @@ const PANEL_HEADINGS: Record<PanelId, string> = { front: "Front panel (PDP):", b
 const ACCEPT = "image/png,image/jpeg,image/webp,application/pdf";
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 type UploadFile = { id: string; file: File; panel: PanelId | ""; preview: string | null };
+const PANEL_ORDER: PanelId[] = ["front", "back", "nutrition"];
 
 type Result = { report: ReportData | null; explanation: Explanation | null; notice?: string; inputs: Inputs; artwork: Artwork | null };
 
@@ -410,20 +412,21 @@ export default function Home() {
     }
     setProblem(null);
     setRegions([]);
+    const added: UploadFile[] = incoming.map((f, i) => ({
+      id: `${Date.now()}-${i}`,
+      file: f,
+      panel: "",
+      preview: f.type.startsWith("image/") ? URL.createObjectURL(f) : null,
+    }));
     setUploads((current) =>
-      [...current, ...incoming]
-        .slice(0, 3)
-        .map((f, i) =>
-          "file" in (f as UploadFile)
-            ? (f as UploadFile)
-            : {
-                id: `${Date.now()}-${i}`,
-                file: f as File,
-                panel: (["front", "back", "nutrition"] as PanelId[]).at(i) ?? "",
-                preview: (f as File).type.startsWith("image/") ? URL.createObjectURL(f as File) : null,
-              },
-        ),
+      [...current, ...added].slice(0, 3).map((u, i) => (u.panel || current.includes(u) ? u : { ...u, panel: PANEL_ORDER[i] ?? "" })),
     );
+    // A PDF has no picture of its own: draw page 1, for the thumbnail and the annotated artwork preview.
+    for (const upload of added.filter((u) => u.file.type === "application/pdf")) {
+      pdfFirstPageImage(upload.file).then((preview) => {
+        if (preview) setUploads((all) => all.map((u) => (u.id === upload.id ? { ...u, preview } : u)));
+      });
+    }
   }
 
   async function readFiles(list: UploadFile[] = uploads) {
