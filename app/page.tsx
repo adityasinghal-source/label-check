@@ -3,6 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { Artwork } from "@/components/ArtworkPreview";
 import PackCalculator, { EMPTY_DIMENSIONS, toDimensions, type DimensionsDraft } from "@/components/PackCalculator";
+import ContactForm from "@/components/ContactForm";
 import Report from "@/components/Report";
 import RulesModal from "@/components/RulesModal";
 import { card, chip, secondaryButton } from "@/components/styles";
@@ -844,6 +845,7 @@ export default function Home() {
           )}
         </section>
       </main>
+      <ContactForm />
     </div>
   );
 }

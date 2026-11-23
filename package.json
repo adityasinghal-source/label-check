@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "next": "16.4.2",
+    "nodemailer": "^10.6.1",
     "pdfjs-dist": "4.10.38",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -22,6 +23,7 @@
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^24.19.2",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
